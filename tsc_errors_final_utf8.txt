@@ -1,0 +1,34 @@
+﻿components/AdminPanel.tsx(264,33): error TS2353: Object literal may only specify known properties, and 'nextOrderDiscountReason' does not exist in type 'Partial<ClientUser | TeamMember>'.
+components/AdminPanel.tsx(314,53): error TS2339: Property 'seconds' does not exist on type 'number'.
+components/AdminPanel.tsx(314,77): error TS2339: Property 'seconds' does not exist on type 'number'.
+components/AdminPanel.tsx(841,104): error TS2345: Argument of type 'Order | IssueReport' is not assignable to parameter of type 'SetStateAction<Order>'.
+  Type 'IssueReport' is not assignable to type 'SetStateAction<Order>'.
+    Type 'IssueReport' is missing the following properties from type 'Order': vehicle, vehicleType, service, date, and 3 more.
+components/AdminPanel.tsx(1492,9): error TS2367: This comparison appears to be unintentional because the types 'Screen.ONBOARDING | Screen.LOGIN | Screen.REGISTER | Screen.RECOVER_PASSWORD | Screen.RESET_PASSWORD | Screen.WASHER_REGISTRATION | Screen.CLIENT_HOME | Screen.CLIENT_VEHICLE | Screen.CLIENT_DATE_TIME | Screen.CLIENT_ADDRESS | Screen.CLIENT_SERVICE_SELECT | ... 28 more ... | Screen.NATIVE_TEST' and 'Screen.ADMIN_DASHBOARD' have no overlap.
+components/AdminPanel.tsx(1946,39): error TS2339: Property 'seconds' does not exist on type 'number'.
+components/AdminPanel.tsx(1946,63): error TS2339: Property 'seconds' does not exist on type 'number'.
+components/AdminPanel.tsx(2315,9): error TS2367: This comparison appears to be unintentional because the types 'Screen.ONBOARDING | Screen.LOGIN | Screen.REGISTER | Screen.RECOVER_PASSWORD | Screen.RESET_PASSWORD | Screen.WASHER_REGISTRATION | Screen.CLIENT_HOME | Screen.CLIENT_VEHICLE | Screen.CLIENT_DATE_TIME | Screen.CLIENT_ADDRESS | Screen.CLIENT_SERVICE_SELECT | ... 25 more ... | Screen.NATIVE_TEST' and 'Screen.ADMIN_DASHBOARD' have no overlap.
+components/AdminPanel.tsx(2360,83): error TS2554: Expected 1 arguments, but got 2.
+components/AdminPanel.tsx(2370,40): error TS2304: Cannot find name 'searchTerm'.
+components/AdminPanel.tsx(2371,50): error TS2552: Cannot find name 'setSearchTerm'. Did you mean 'setSearchQuery'?
+components/AdminPanel.tsx(2393,95): error TS2554: Expected 1 arguments, but got 2.
+components/AdminPanel.tsx(2394,64): error TS2552: Cannot find name 'handleDeleteClient'. Did you mean 'handleDeleteItem'?
+components/AdminPanel.tsx(2487,98): error TS2345: Argument of type 'VehicleTypeConfig' is not assignable to parameter of type 'SetStateAction<ServicePackage | ServiceAddon>'.
+  Type 'VehicleTypeConfig' is missing the following properties from type 'ServiceAddon': price, duration
+components/AdminPanel.tsx(3182,83): error TS2339: Property 'id' does not exist on type '{ name: string; email: string; password: string; role: UserRole; driverLicense: string; insuranceNumber: string; vehiclePlate: string; vehicleModel: string; }'.
+components/AdminPanel.tsx(3199,49): error TS2339: Property 'id' does not exist on type '{ name: string; email: string; password: string; role: UserRole; driverLicense: string; insuranceNumber: string; vehiclePlate: string; vehicleModel: string; }'.
+components/AdminPanel.tsx(3251,59): error TS2339: Property 'id' does not exist on type '{ name: string; email: string; password: string; role: UserRole; driverLicense: string; insuranceNumber: string; vehiclePlate: string; vehicleModel: string; }'.
+components/AdminPanel.tsx(3253,77): error TS2339: Property 'id' does not exist on type '{ name: string; email: string; password: string; role: UserRole; driverLicense: string; insuranceNumber: string; vehiclePlate: string; vehicleModel: string; }'.
+components/AdminPanel.tsx(3263,52): error TS2339: Property 'id' does not exist on type '{ name: string; email: string; password: string; role: UserRole; driverLicense: string; insuranceNumber: string; vehiclePlate: string; vehicleModel: string; }'.
+components/Client.tsx(1133,46): error TS2367: This comparison appears to be unintentional because the types 'OrderStatus' and '"Washer Assigned"' have no overlap.
+components/Client.tsx(1615,25): error TS2345: Argument of type '{ vehicleId: string; vehicleModel: string; packageId: string; addonIds: any[]; }[]' is not assignable to parameter of type 'SetStateAction<{ vehicleId: string; vehicleModel: string; vehicleType: string; packageId: string; addonIds: string[]; }[]>'.
+  Type '{ vehicleId: string; vehicleModel: string; packageId: string; addonIds: any[]; }[]' is not assignable to type '{ vehicleId: string; vehicleModel: string; vehicleType: string; packageId: string; addonIds: string[]; }[]'.
+    Property 'vehicleType' is missing in type '{ vehicleId: string; vehicleModel: string; packageId: string; addonIds: any[]; }' but required in type '{ vehicleId: string; vehicleModel: string; vehicleType: string; packageId: string; addonIds: string[]; }'.
+components/Client.tsx(1885,8): error TS2741: Property 'team' is missing in type '{ selectedOption: "asap" | "scheduled"; setSelectedOption: Dispatch<SetStateAction<"asap" | "scheduled">>; selectedDate: string; setSelectedDate: Dispatch<...>; ... 4 more ...; showToast: (message: string, type: ToastType) => void; }' but required in type 'DateTimeSelectionScreenProps'.
+components/Client.tsx(2275,60): error TS2345: Argument of type '{ id: string; type: VehicleType; make: string; model: string; year: string; color: string; plate?: string; isDefault: boolean; image?: string | null; }' is not assignable to parameter of type 'SetStateAction<{ make: string; model: string; year: string; color: string; plate: string; type: string; }>'.
+  Type '{ id: string; type: VehicleType; make: string; model: string; year: string; color: string; plate?: string; isDefault: boolean; image?: string | null; }' is not assignable to type '{ make: string; model: string; year: string; color: string; plate: string; type: VehicleType; }'.
+    Property 'plate' is optional in type '{ id: string; type: string; make: string; model: string; year: string; color: string; plate?: string; isDefault: boolean; image?: string; }' but required in type '{ make: string; model: string; year: string; color: string; plate: string; type: string; }'.
+components/Client.tsx(3496,17): error TS2304: Cannot find name 'team'.
+components/GestureComponents.tsx(287,21): error TS2554: Expected 1 arguments, but got 0.
+components/GestureComponents.tsx(288,20): error TS2554: Expected 1 arguments, but got 0.
+components/WasherRegistration.tsx(89,17): error TS2322: Type 'string' is not assignable to type 'number'.

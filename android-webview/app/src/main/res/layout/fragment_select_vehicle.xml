@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/vehiclesRecycler"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"/>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnAddVehicle"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="+ Add New Vehicle"
+        android:textColor="#60A5FA"
+        android:backgroundTint="#1E293B"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"/>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnNext"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="Next: Select Package"
+        android:textColor="#000000"
+        android:backgroundTint="#60A5FA"
+        android:enabled="false"/>
+
+</LinearLayout>

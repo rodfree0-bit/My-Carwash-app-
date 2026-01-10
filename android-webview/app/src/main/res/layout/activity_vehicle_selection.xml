@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0F172A">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Custom Toolbar -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="16dp">
+            
+            <ImageView
+                android:id="@+id/btnClose"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_back_arrow"
+                android:padding="6dp"
+                android:rotation="0"
+                app:tint="#FFFFFF"
+                android:background="@drawable/bg_circle_dark"
+                android:clickable="true"
+                android:foreground="?attr/selectableItemBackgroundBorderless"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Select Vehicle"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_gravity="center"/>
+        </FrameLayout>
+
+        <!-- Progress Indicator -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingHorizontal="24dp"
+            android:layout_marginBottom="24dp">
+            <View android:layout_width="0dp" android:layout_height="4dp" android:layout_weight="1" android:background="@drawable/bg_step_active"/>
+            <View android:layout_width="8dp" android:layout_height="match_parent"/>
+            <View android:layout_width="0dp" android:layout_height="4dp" android:layout_weight="1" android:background="@drawable/bg_step_inactive"/>
+            <View android:layout_width="8dp" android:layout_height="match_parent"/>
+            <View android:layout_width="0dp" android:layout_height="4dp" android:layout_weight="1" android:background="@drawable/bg_step_inactive"/>
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Which car are we washing today?"
+            android:textColor="#FFFFFF"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:paddingHorizontal="24dp"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Select one or more vehicles from your garage"
+            android:textColor="#94A3B8"
+            android:textSize="14sp"
+            android:paddingHorizontal="24dp"
+            android:layout_marginBottom="24dp"/>
+
+        <!-- Vehicle List -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerSavedVehicles"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:paddingHorizontal="16dp"
+            android:clipToPadding="false"
+            android:paddingBottom="100dp"/> <!-- Space for FAB -->
+
+    </LinearLayout>
+
+    <!-- Bottom Actions -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_gravity="bottom"
+        android:background="#1E293B"
+        android:padding="16dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnAddNewVehicle"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="+ Add New Vehicle"
+            android:textColor="#60A5FA"
+            app:strokeColor="#60A5FA"
+            app:strokeWidth="1dp"
+            android:backgroundTint="#00000000"
+            app:cornerRadius="12dp"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="12dp"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnContinue"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Continue"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#2563EB"
+            app:cornerRadius="12dp"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:enabled="false"/>
+    </LinearLayout>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

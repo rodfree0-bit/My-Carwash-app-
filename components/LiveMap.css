@@ -1,0 +1,62 @@
+/* Hide Google Maps branding */
+.gm-style-cc,
+.gm-style a[href^="https://maps.google.com/maps"],
+a[href^="https://maps.google.com/maps"],
+.gmnoprint,
+.gm-style .gmnoprint {
+    display: none !important;
+}
+
+/* Hide Google logo */
+.gm-style img[src*="google"] {
+    display: none !important;
+}
+
+/* Hide Terms of Use link */
+.gm-style-cc+div {
+    display: none !important;
+}
+
+/* Ensure map fills container */
+.gm-style {
+    font-family: inherit !important;
+}
+
+/* Pulse Ring Animation for Washer Marker */
+@keyframes pulse-ring {
+    0% {
+        transform: scale(0.33);
+        opacity: 1;
+    }
+
+    80%,
+    100% {
+        transform: scale(2);
+        opacity: 0;
+    }
+}
+
+.pulse-ring::before {
+    content: '';
+    position: absolute;
+    left: -10px;
+    top: -10px;
+    right: -10px;
+    bottom: -10px;
+    border-radius: 50%;
+    border: 3px solid #3b82f6;
+    animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+.pulse-ring::after {
+    content: '';
+    position: absolute;
+    left: -10px;
+    top: -10px;
+    right: -10px;
+    bottom: -10px;
+    border-radius: 50%;
+    border: 3px solid #3b82f6;
+    animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    animation-delay: 0.5s;
+}

@@ -1,0 +1,6 @@
+// INSTRUCCIONES: Reemplazar en Admin.tsx líneas 3142-3203
+
+// Support Chat Screen (NEW - replaces old issues list)
+if (screen === Screen.ADMIN_ISSUES) {
+    return <SupportChatAdmin currentUser={currentUser} navigate={navigate} />;
+}

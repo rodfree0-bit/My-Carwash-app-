@@ -1,0 +1,42 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.cache/
+coverage/
+build/
+
+# Android
+android-webview/app/build/
+android-webview/app/release/
+android-webview/.gradle/
+android-webview/build/
+*.apk
+*.aab
+*.dex
+
+# iOS
+ios/App/build/
+ios/App/Pods/
+*.ipa
+*.xcworkspace
+*.xcuserdata
+
+# Archivos temporales grandes
+temp_*.js
+temp_*.txt
+*_debug.txt
+*.pid*
+*.hprof
+java_pid*

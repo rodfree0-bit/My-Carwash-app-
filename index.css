@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+/* Tailwind v4 theme variables - ignore IDE warnings about @theme */
+@theme {
+  --color-primary: #3b82f6;
+  --color-primary-dark: #2563eb;
+  --color-background-dark: #101822;
+  --color-surface-dark: #1a2431;
+
+  --shadow-blue: 0 4px 15px rgba(59, 130, 246, 0.4);
+  --shadow-blue-lg: 0 10px 25px rgba(59, 130, 246, 0.5);
+
+  --font-inter: "Inter", sans-serif;
+}
+
+/* stylelint-disable */
+body {
+  background-color: #101822;
+  color: white;
+  font-family: var(--font-inter);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  overscroll-behavior-y: none;
+  min-height: 100vh;
+}
+
+input,
+textarea {
+  user-select: text;
+}

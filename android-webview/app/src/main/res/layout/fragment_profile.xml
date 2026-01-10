@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background_dark"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="32dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="48dp"
+        android:text="My Profile"
+        android:textColor="@color/white"
+        android:textSize="24sp"
+        android:textStyle="bold" />
+
+    <!-- AVATAR -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:layout_marginBottom="24dp"
+        app:cardBackgroundColor="@color/surface_dark"
+        app:cardCornerRadius="60dp"
+        app:cardElevation="0dp">
+
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="24dp"
+            android:src="@android:drawable/ic_menu_my_calendar"
+            app:tint="@color/primary_blue" />
+    </androidx.cardview.widget.CardView>
+
+    <!-- NOMBRE -->
+    <TextView
+        android:id="@+id/userName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:text="Loading..."
+        android:textColor="@color/white"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <!-- EMAIL -->
+    <TextView
+        android:id="@+id/userEmail"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="64dp"
+        android:text="Loading..."
+        android:textColor="@color/text_secondary"
+        android:textSize="16sp" />
+
+    <!-- LOGOUT BUTTON -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/logoutButton"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:backgroundTint="#EF4444"
+        android:text="Sign Out"
+        app:cornerRadius="12dp" />
+
+</LinearLayout>

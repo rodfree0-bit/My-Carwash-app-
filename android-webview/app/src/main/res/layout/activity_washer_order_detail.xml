@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0F172A"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="#1E293B"
+            app:title="Detalles de Orden"
+            app:titleTextColor="#FFFFFF"
+            app:navigationIcon="@drawable/ic_back" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <!-- Order Number & Status -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="20dp">
+
+                <TextView
+                    android:id="@+id/tvOrderNumber"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="#ABC123"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="NEW"
+                    android:textColor="#3B82F6"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:padding="8dp"
+                    android:background="@drawable/bg_status_badge" />
+            </LinearLayout>
+
+            <!-- Client Info Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Cliente"
+                        android:textColor="#94A3B8"
+                        android:textSize="12sp"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:id="@+id/tvClientName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="John Doe"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Chat Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnChat"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="💬 Chat con Cliente"
+                android:textSize="14sp"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#8B5CF6"
+                app:cornerRadius="12dp"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Order Details Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Detalles del Servicio"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="12dp" />
+
+                    <TextView
+                        android:id="@+id/tvDateTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📅 Dec 8, 2024 • 2:00 PM"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:id="@+id/tvAddress"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📍 123 Main Street"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:id="@+id/tvVehiclesServices"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🚗 2 vehículos"
+                        android:textColor="#94A3B8"
+                        android:textSize="13sp"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:id="@+id/tvTotal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="💵 Total: $50.00"
+                        android:textColor="#10B981"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Timer Card (visible only when WASHING) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/timerCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="12dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:gravity="center">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="⏱️ Tiempo de Servicio"
+                        android:textColor="#94A3B8"
+                        android:textSize="14sp"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:id="@+id/tvTimer"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="00:00:00"
+                        android:textColor="#FFFFFF"
+                        android:textSize="32sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- State Management Buttons -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="16dp">
+
+                <!-- Accept Order (NEW only) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnAcceptOrder"
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:text="✅ Aceptar Orden"
+                    android:textSize="16sp"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#10B981"
+                    app:cornerRadius="12dp"
+                    android:layout_marginBottom="12dp"
+                    android:visibility="gone" />
+
+                <!-- Start Route (ASSIGNED) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnStartRoute"
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:text="🚗 Iniciar Ruta"
+                    android:textSize="16sp"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#3B82F6"
+                    app:cornerRadius="12dp"
+                    android:layout_marginBottom="12dp"
+                    android:visibility="gone" />
+
+                <!-- Arrived (EN_ROUTE) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnArrived"
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:text="📍 Llegué al Lugar"
+                    android:textSize="16sp"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#8B5CF6"
+                    app:cornerRadius="12dp"
+                    android:layout_marginBottom="12dp"
+                    android:visibility="gone" />
+
+                <!-- Start Washing (ARRIVED) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnStartWashing"
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:text="🧽 Iniciar Lavado"
+                    android:textSize="16sp"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#F59E0B"
+                    app:cornerRadius="12dp"
+                    android:layout_marginBottom="12dp"
+                    android:visibility="gone" />
+
+                <!-- Complete (WASHING) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnComplete"
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:text="✅ Completar Servicio"
+                    android:textSize="16sp"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#10B981"
+                    app:cornerRadius="12dp"
+                    android:layout_marginBottom="12dp"
+                    android:visibility="gone" />
+
+                <!-- No-Show -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnNoShow"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:text="❌ Marcar No-Show"
+                    android:textSize="14sp"
+                    android:textColor="#FFFFFF"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    app:strokeColor="#EF4444"
+                    app:strokeWidth="2dp"
+                    app:cornerRadius="12dp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <!-- Photos Section -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/photosCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="12dp"
+                android:visibility="visible">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📸 Fotos del Servicio"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="12dp" />
+
+                    <TextView
+                        android:id="@+id/tvPhotoCount"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0 fotos subidas"
+                        android:textColor="#94A3B8"
+                        android:textSize="13sp"
+                        android:layout_marginBottom="12dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAddPhoto"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:text="📷 Agregar Foto"
+                        android:textSize="14sp"
+                        android:textColor="#FFFFFF"
+                        android:backgroundTint="#10B981"
+                        app:cornerRadius="12dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

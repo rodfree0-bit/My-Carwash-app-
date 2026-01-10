@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0F172A">
+
+    <!-- Toolbar -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="#1E293B"
+        app:title="Service Address"
+        app:titleTextColor="#FFFFFF"
+        app:navigationIcon="@android:drawable/ic_menu_close_clear_cancel" />
+
+    <!-- Progress -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Step 4 of 5"
+        android:textSize="12sp"
+        android:textColor="#94A3B8"
+        android:padding="16dp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Service Area Info -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📍 Service Area"
+                        android:textSize="16sp"
+                        android:textColor="#FFFFFF"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:id="@+id/tvServiceAreaInfo"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Loading service area..."
+                        android:textSize="14sp"
+                        android:textColor="#94A3B8" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Address Input -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Service Location"
+                android:textSize="18sp"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:layout_marginBottom="12dp" />
+
+            <!-- Saved Addresses List -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvSavedAddresses"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Or Enter New Address"
+                android:textSize="14sp"
+                android:textColor="#94A3B8"
+                android:layout_marginBottom="8dp" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Street Address"
+                android:layout_marginBottom="12dp"
+                app:boxBackgroundColor="#1E293B"
+                app:hintTextColor="#94A3B8"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etAddress"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#FFFFFF"
+                    android:inputType="textPostalAddress"
+                    android:maxLines="3" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Validate Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnValidateAddress"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="Validate Address"
+                android:textColor="#FFFFFF"
+                app:strokeColor="#3B82F6"
+                app:strokeWidth="2dp"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Validation Result -->
+            <TextView
+                android:id="@+id/tvValidationResult"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textSize="14sp"
+                android:layout_marginBottom="24dp"
+                android:visibility="visible" />
+
+            <!-- Saved Addresses (Future Enhancement) -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💡 Tip: Make sure to include apartment/unit number if applicable"
+                android:textSize="12sp"
+                android:textColor="#94A3B8"
+                android:layout_marginTop="8dp" />
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Continue Button -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp"
+        android:background="#1E293B"
+        android:elevation="8dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnContinue"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Continue to Payment"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#10B981"
+            android:enabled="false" />
+    </LinearLayout>
+
+</LinearLayout>

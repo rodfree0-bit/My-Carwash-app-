@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background_dark">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="24dp">
+
+            <ImageView
+                android:id="@+id/btnBack"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_back_arrow"
+                xmlns:app="http://schemas.android.com/apk/res-auto"
+                app:tint="@color/white"
+                android:layout_marginEnd="12dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/admin_settings_title"
+                android:textColor="@color/white"
+                android:textSize="24sp"
+                android:textStyle="bold"/>
+        </LinearLayout>
+
+        <!-- Financial Settings -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/admin_settings_financial_config"
+            android:textColor="@color/primary_blue"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Commission Rate -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/admin_settings_commission_label"
+            android:textColor="@color/text_secondary"
+            android:layout_marginBottom="4dp"/>
+        
+        <EditText
+            android:id="@+id/inputCommission"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/input_bg"
+            android:padding="12dp"
+            android:textColor="@color/white"
+            android:inputType="numberDecimal"
+            android:hint="@string/admin_settings_commission_hint"
+            android:textColorHint="@color/text_secondary"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Platform Fee -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/admin_settings_platform_fee_label"
+            android:textColor="@color/text_secondary"
+            android:layout_marginBottom="4dp"/>
+        
+        <EditText
+            android:id="@+id/inputFee"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/input_bg"
+            android:padding="12dp"
+            android:textColor="@color/white"
+            android:inputType="numberDecimal"
+            android:hint="@string/admin_settings_platform_fee_hint"
+            android:textColorHint="@color/text_secondary"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Tax Rate -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/admin_settings_tax_rate_label"
+            android:textColor="@color/text_secondary"
+            android:layout_marginBottom="4dp"/>
+        
+        <EditText
+            android:id="@+id/inputTax"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/input_bg"
+            android:padding="12dp"
+            android:textColor="@color/white"
+            android:inputType="numberDecimal"
+            android:hint="@string/admin_settings_tax_rate_hint"
+            android:textColorHint="@color/text_secondary"
+            android:layout_marginBottom="32dp"/>
+
+        <Button
+            android:id="@+id/btnSave"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="@string/admin_settings_save_button"
+            android:backgroundTint="@color/primary_blue"
+            android:textColor="@color/white"
+            android:textStyle="bold"/>
+
+    </LinearLayout>
+</ScrollView>

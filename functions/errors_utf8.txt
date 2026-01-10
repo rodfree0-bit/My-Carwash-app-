@@ -1,0 +1,5 @@
+﻿src/notifyNewMessage.ts(10,6): error TS2339: Property 'document' does not exist on type 'typeof import("C:/Users/rodrigo/Documents/my carwash app ia studio/functions/node_modules/firebase-functions/lib/v2/providers/firestore")'.
+src/notifyNewMessage.ts(11,22): error TS7006: Parameter 'snap' implicitly has an 'any' type.
+src/notifyNewMessage.ts(11,28): error TS7006: Parameter 'context' implicitly has an 'any' type.
+src/notifyWaitingTime.ts(10,6): error TS2339: Property 'schedule' does not exist on type 'typeof import("C:/Users/rodrigo/Documents/my carwash app ia studio/functions/node_modules/firebase-functions/lib/v2/providers/pubsub")'.
+src/notifyWaitingTime.ts(12,19): error TS7006: Parameter 'context' implicitly has an 'any' type.

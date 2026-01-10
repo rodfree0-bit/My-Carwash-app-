@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/cardContainer"
+    android:layout_width="60dp"
+    android:layout_height="80dp"
+    android:layout_margin="4dp"
+    app:cardBackgroundColor="#1E293B"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp"
+    android:foreground="?attr/selectableItemBackground">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/txtDayName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="MON"
+            android:textColor="#94A3B8"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textAllCaps="true"/>
+
+        <TextView
+            android:id="@+id/txtDayNumber"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="12"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginTop="4dp"/>
+            
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

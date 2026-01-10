@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary_blue">#3898F3</color>
+    <color name="primary_blue_dark">#1976D2</color>
+    <color name="background_dark">#101822</color>
+    <color name="surface_dark">#18202b</color>
+    <color name="text_secondary">#B3FFFFFF</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="online_green">#10B981</color>
+    <color name="accent_green">#10B981</color>
+    <color name="offline_gray">#9E9E9E</color>
+    <color name="package_selected_background">#60A5FA</color>
+    <color name="package_unselected_background">#1E293B</color>
+    <color name="package_unselected_text">#94A3B8</color>
+    <color name="package_unselected_price">#60A5FA</color>
+    <color name="primary">#3898F3</color>
+</resources>

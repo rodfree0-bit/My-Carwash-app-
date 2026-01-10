@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0F172A"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:gravity="center">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Team Management"
+        android:textColor="#FFFFFF"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Manage your washers and team members"
+        android:textColor="#94A3B8"
+        android:textSize="14sp"
+        android:layout_marginBottom="32dp"/>
+
+    <Button
+        android:id="@+id/btnManageTeam"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="Manage Team"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#3B82F6"
+        android:textAllCaps="false"
+        android:textSize="16sp"/>
+
+</LinearLayout>

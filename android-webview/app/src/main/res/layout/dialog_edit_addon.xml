@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="#1E293B"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Name"
+            android:textColor="#94A3B8"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/inputName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="16dp"
+            android:background="@android:drawable/edit_text"
+            android:padding="12dp"
+            android:textColor="#FFFFFF"
+            android:hint="Add-on name" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Description"
+            android:textColor="#94A3B8"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/inputDescription"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="16dp"
+            android:background="@android:drawable/edit_text"
+            android:padding="12dp"
+            android:textColor="#FFFFFF"
+            android:hint="Add-on description"
+            android:minLines="3"
+            android:gravity="top" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Duration"
+            android:textColor="#94A3B8"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/inputDuration"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="16dp"
+            android:background="@android:drawable/edit_text"
+            android:padding="12dp"
+            android:textColor="#FFFFFF"
+            android:hint="e.g. 15m, 30m" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Prices per Vehicle Type"
+            android:textColor="#94A3B8"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:id="@+id/pricesContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Washer Commission (%)"
+            android:textColor="#94A3B8"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/inputWasherCommission"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="16dp"
+            android:background="@android:drawable/edit_text"
+            android:padding="12dp"
+            android:textColor="#FFFFFF"
+            android:hint="80"
+            android:inputType="number" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="App Commission (%)"
+            android:textColor="#94A3B8"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/inputAppCommission"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="16dp"
+            android:background="@android:drawable/edit_text"
+            android:padding="12dp"
+            android:textColor="#FFFFFF"
+            android:hint="20"
+            android:inputType="number" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Fees / Deductions"
+                android:textColor="#94A3B8"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnAddFee"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="+ Add Fee"
+                android:textSize="12sp"
+                android:backgroundTint="#A78BFA" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/feesContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+    </LinearLayout>
+</ScrollView>

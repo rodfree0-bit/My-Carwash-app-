@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/cardContainer"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="16dp"
+    app:cardBackgroundColor="#1E293B"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="4dp"
+    android:foreground="?attr/selectableItemBackground">
+
+    <!-- Selection Border -->
+    <View
+        android:id="@+id/selectionBorder"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_border_blue_rounded"
+        android:visibility="gone"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:id="@+id/txtName"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Gold Package"
+                android:textColor="#FFFFFF"
+                android:textSize="20sp"
+                android:textStyle="bold"/>
+
+            <TextView
+                android:id="@+id/txtPrice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="$29.99"
+                android:textColor="#60A5FA"
+                android:textSize="20sp"
+                android:textStyle="bold"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+            
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_clock"
+                app:tint="#94A3B8"/>
+                
+            <TextView
+                android:id="@+id/txtDuration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="45 min"
+                android:textColor="#94A3B8"
+                android:textSize="14sp"
+                android:layout_marginStart="6dp"/>
+        </LinearLayout>
+        
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#334155"
+            android:layout_marginBottom="12dp"/>
+
+        <TextView
+            android:id="@+id/txtDescription"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Includes exterior wash, interior vacuum, tire shine, and wax."
+            android:textColor="#CBD5E1"
+            android:textSize="14sp"
+            android:lineSpacingExtra="4dp"/>
+            
+        <!-- Checkbox indicator -->
+        <RadioButton
+            android:id="@+id/radioSelected"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:buttonTint="#3B82F6"
+            android:layout_gravity="end"
+            android:clickable="false"
+            android:focusable="false"
+            android:checked="false"
+            android:visibility="invisible"/> <!-- Hide visually but keep logic if needed, or better, use border only -->
+
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

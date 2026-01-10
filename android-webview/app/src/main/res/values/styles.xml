@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="CalendarViewTheme" parent="Theme.MaterialComponents.DayNight">
+        <item name="colorPrimary">#60A5FA</item>
+        <item name="colorAccent">#60A5FA</item>
+        <item name="android:datePickerStyle">@style/DatePickerStyle</item>
+    </style>
+    
+    <style name="DatePickerStyle" parent="android:Widget.Material.Light.DatePicker">
+        <item name="android:headerBackground">#60A5FA</item>
+        <item name="android:calendarTextColor">#FFFFFF</item>
+    </style>
+
+    <style name="ProfileMenuButton" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">60dp</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:gravity">start|center_vertical</item>
+        <item name="android:backgroundTint">#1E293B</item>
+        <item name="strokeColor">#334155</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="cornerRadius">12dp</item>
+        <item name="iconTint">#FFFFFF</item>
+        <item name="iconGravity">start</item>
+        <item name="iconPadding">16dp</item>
+        <item name="android:layout_marginBottom">12dp</item>
+        <item name="android:stateListAnimator">@null</item>
+    </style>
+</resources>

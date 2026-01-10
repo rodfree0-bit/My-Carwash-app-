@@ -1,0 +1,522 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0F172A">
+
+    <!-- Toolbar -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="#1E293B"
+        app:title="Review &amp; Pay"
+        app:titleTextColor="#FFFFFF"
+        app:navigationIcon="@android:drawable/ic_menu_close_clear_cancel" />
+
+    <!-- Progress -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Step 5 of 5"
+        android:textSize="12sp"
+        android:textColor="#94A3B8"
+        android:padding="16dp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Order Summary Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📋 Order Summary"
+                        android:textSize="18sp"
+                        android:textColor="#FFFFFF"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="16dp" />
+
+                    <!-- Date & Time -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="📅 Scheduled:"
+                            android:textSize="14sp"
+                            android:textColor="#94A3B8" />
+
+                        <TextView
+                            android:id="@+id/tvScheduledDateTime"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Loading..."
+                            android:textSize="14sp"
+                            android:textColor="#FFFFFF" />
+                    </LinearLayout>
+
+                    <!-- Address -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="📍 Address:"
+                            android:textSize="14sp"
+                            android:textColor="#94A3B8" />
+
+                        <TextView
+                            android:id="@+id/tvAddress"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Loading..."
+                            android:textSize="14sp"
+                            android:textColor="#FFFFFF"
+                            android:maxLines="2"
+                            android:ellipsize="end" />
+                    </LinearLayout>
+
+                    <!-- Vehicles -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="🚗 Vehicles:"
+                            android:textSize="14sp"
+                            android:textColor="#94A3B8" />
+
+                        <TextView
+                            android:id="@+id/tvVehiclesCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0 vehicles"
+                            android:textSize="14sp"
+                            android:textColor="#FFFFFF" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Coupon Code Section -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🎟️ Coupon Code"
+                        android:textSize="16sp"
+                        android:textColor="#FFFFFF"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="12dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:hint="Enter code"
+                            app:boxBackgroundColor="#0F172A"
+                            app:hintTextColor="#94A3B8"
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etCouponCode"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:textColor="#FFFFFF"
+                                android:inputType="textCapCharacters" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnApplyCoupon"
+                            android:layout_width="wrap_content"
+                            android:layout_height="56dp"
+                            android:text="Apply"
+                            android:layout_marginStart="8dp"
+                            android:backgroundTint="#3B82F6" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvCouponApplied"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="✅ Coupon applied"
+                        android:textSize="14sp"
+                        android:textColor="#10B981"
+                        android:layout_marginTop="8dp"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+            <!-- Payment Method -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="💳 Payment Method"
+                        android:textSize="16sp"
+                        android:textColor="#FFFFFF"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="12dp" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rvSavedCards"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="12dp" />
+
+                    <TextView
+                        android:id="@+id/tvPaymentInfo"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Select a card or pay after service"
+                        android:textSize="12sp"
+                        android:textColor="#94A3B8" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Tip Selection -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="💵 Add Tip (Optional)"
+                        android:textSize="16sp"
+                        android:textColor="#FFFFFF"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="100% goes to your washer"
+                        android:textSize="12sp"
+                        android:textColor="#10B981"
+                        android:layout_marginBottom="12dp" />
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chipGroupTip"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        app:singleSelection="true">
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chip10Percent"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="10%"
+                            android:checkable="true"
+                            app:chipBackgroundColor="#475569" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chip15Percent"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="15%"
+                            android:checkable="true"
+                            app:chipBackgroundColor="#475569" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chip20Percent"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="20%"
+                            android:checkable="true"
+                            app:chipBackgroundColor="#475569" />
+                    </com.google.android.material.chip.ChipGroup>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Or enter custom amount:"
+                        android:textSize="12sp"
+                        android:textColor="#94A3B8"
+                        android:layout_marginBottom="8dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:hint="Custom tip"
+                            app:prefixText="$"
+                            app:boxBackgroundColor="#0F172A"
+                            app:hintTextColor="#94A3B8"
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etCustomTip"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:textColor="#FFFFFF"
+                                android:inputType="numberDecimal" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnApplyCustomTip"
+                            android:layout_width="wrap_content"
+                            android:layout_height="56dp"
+                            android:text="Apply"
+                            android:layout_marginStart="8dp"
+                            android:backgroundTint="#3B82F6" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvTipMessage"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="💚 100% of the tip goes to your washer"
+                        android:textSize="12sp"
+                        android:textColor="#10B981"
+                        android:layout_marginTop="8dp"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Price Breakdown -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="💰 Price Breakdown"
+                        android:textSize="16sp"
+                        android:textColor="#FFFFFF"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="16dp" />
+
+                    <!-- Subtotal -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Subtotal"
+                            android:textSize="14sp"
+                            android:textColor="#94A3B8" />
+
+                        <TextView
+                            android:id="@+id/tvSubtotal"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="$0.00"
+                            android:textSize="14sp"
+                            android:textColor="#FFFFFF" />
+                    </LinearLayout>
+
+                    <!-- Discount -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Discount"
+                            android:textSize="14sp"
+                            android:textColor="#94A3B8" />
+
+                        <TextView
+                            android:id="@+id/tvDiscount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="$0.00"
+                            android:textSize="14sp"
+                            android:textColor="#10B981" />
+                    </LinearLayout>
+
+                    <!-- Tip -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="16dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Tip"
+                            android:textSize="14sp"
+                            android:textColor="#94A3B8" />
+
+                        <TextView
+                            android:id="@+id/tvTip"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="$0.00"
+                            android:textSize="14sp"
+                            android:textColor="#FFFFFF" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#475569"
+                        android:layout_marginBottom="16dp" />
+
+                    <!-- Total -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Total"
+                            android:textSize="18sp"
+                            android:textColor="#FFFFFF"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvTotal"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="$0.00"
+                            android:textSize="24sp"
+                            android:textColor="#10B981"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Bottom Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:background="#1E293B"
+        android:elevation="8dp">
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone"
+            android:layout_marginBottom="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnConfirmBooking"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Confirm Booking"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#10B981"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+</LinearLayout>

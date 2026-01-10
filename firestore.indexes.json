@@ -1,0 +1,47 @@
+{
+    "indexes": [
+        {
+            "collectionGroup": "orders",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "clientId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "date",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "orders",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "washerId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "date",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "notifications",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "userId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "timestamp",
+                    "order": "DESCENDING"
+                }
+            ]
+        }
+    ],
+    "fieldOverrides": []
+}

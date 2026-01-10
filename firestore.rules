@@ -1,0 +1,158 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isWasher() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'washer';
+    }
+
+    // Users collection - FULLY RESTORED
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // Orders collection - FULLY OPERATIONAL
+    match /orders/{orderId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // Settings collection (fees, counters, service_area) - PUBLIC READ
+    // Needed for login screen and public pages
+    match /settings/{document} {
+      allow read: if true; // Public read access
+      allow write: if isAuthenticated(); // Only authenticated users can write
+    }
+
+    // Packages collection
+    match /packages/{packageId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Addons collection
+    match /addons/{addonId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Vehicle Types collection
+    match /vehicle_types/{typeId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Support Tickets collection - Allow anonymous creation from landing page
+    match /supportTickets/{ticketId} {
+      allow read: if true; // Allow anyone to read (needed for landing page chat)
+      allow create: if true; // Allow anyone to create tickets (landing page chat)
+      allow update: if true; // Allow anyone to update (needed for lastMessageAt, unreadByAdmin)
+      allow delete: if isAdmin();
+    }
+
+    // Messages subcollection (Support) - Allow anonymous creation and reading
+    match /supportTickets/{ticketId}/messages/{messageId} {
+      allow read: if true; // Allow anyone to read messages (landing page chat)
+      allow create: if true; // Allow anyone to send messages (landing page chat)
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // Washer Applications
+    match /washer_applications/{applicationId} {
+      allow read: if isAdmin();
+      allow create: if true;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Approved Washers (Invitations)
+    match /approved_washers/{email} {
+      allow read: if true; // Needed for registration check
+      allow write: if isAdmin();
+    }
+
+    // Discounts
+    match /discounts/{discountId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Bonuses
+    match /bonuses/{bonusId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Deductions
+    match /deductions/{deductionId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Payments
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated(); // Allow payment status updates
+      allow delete: if isAdmin();
+    }
+
+    // Payroll Periods
+    match /payroll_periods/{periodId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Issues/Reports
+    match /issues/{issueId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // Notifications - RESTORED
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated(); // Fix "Mark as read" issues
+      allow delete: if isAdmin();
+    }
+
+    // Messages (Chat) - RESTORED
+    // "El chat se arruinó" fix: Allow users to send and update messages
+    match /messages/{messageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow write: if isAuthenticated(); // Consolidated write/update/create
+      allow delete: if isAdmin();
+    }
+
+    // Service Area
+    match /serviceArea/{areaId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

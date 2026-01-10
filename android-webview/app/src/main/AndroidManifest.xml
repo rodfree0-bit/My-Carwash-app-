@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
+    <application
+        android:name=".MyCarwashApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="My Carwash App"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MyCarwashApp"
+        tools:targetApi="31">
+
+        <service
+            android:name=".services.MyFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".services.WasherLocationService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/provider_paths" />
+        </provider>
+
+        <!-- ONBOARDING ACTIVITY -->
+        <activity
+            android:name=".OnboardingActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <!-- LOGIN ACTIVITY -->
+        <activity
+            android:name=".LoginActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp"/>
+
+        <!-- MAIN ACTIVITY -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.MyCarwashApp">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+            
+        <!-- REGISTER ACTIVITY -->
+        <activity
+            android:name=".RegisterActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+            
+
+            
+        <!-- ORDER CHAT ACTIVITY -->
+        <activity
+            android:name=".ui.client.OrderChatActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+            
+        <!-- RATING ACTIVITY -->
+        <activity
+            android:name=".ui.client.RatingActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+            
+        <!-- ORDER TRACKING ACTIVITY -->
+        <activity
+            android:name=".ui.client.OrderTrackingActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+            
+        <!-- REFERRAL ACTIVITY -->
+        <activity
+            android:name=".ui.client.ReferralActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+            
+
+            
+
+            
+
+
+        <activity
+            android:name=".MapsActivity"
+            android:exported="false"
+            android:label="Washer Location" />
+
+
+            
+        <activity
+            android:name=".AdminDashboardActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+
+        <activity
+            android:name=".ui.admin.AdminTeamActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.admin.AdminCouponsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.admin.AdminVehicleTypesActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.admin.AdminAddonsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.admin.AdminSettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.admin.AdminServicesActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.admin.AdminOrdersActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.booking.BookOrderActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.booking.VehicleSelectionActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.booking.ServiceSelectionActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.booking.DateTimeSelectionActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.booking.AddressActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.booking.PaymentActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.booking.BookingConfirmationActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.washer.WasherMainActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.washer.WasherJobDetailActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.washer.WasherRegistrationActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.client.ClientInProgressActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.client.ClientMainActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+            
+        <activity
+            android:name=".ui.client.EditProfileActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity
+            android:name=".ui.support.SupportChatActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp" />
+
+        <activity android:name=".ui.client.ClientAddressesActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp"/>
+        <activity android:name=".ui.client.ClientPaymentsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp"/>
+        <activity android:name=".ui.client.ClientNotificationSettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp"/>
+            
+        <activity android:name=".ui.client.ClientNotificationListActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MyCarwashApp"/>
+            
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyApkyQssD6hO2Ff3s9CENYEmOhNyGo24DE" />
+            
+    </application>
+
+</manifest>

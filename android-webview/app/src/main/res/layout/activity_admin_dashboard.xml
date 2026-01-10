@@ -1,0 +1,541 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0F172A"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Admin Dashboard"
+            android:textColor="#FFFFFF"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:id="@+id/welcomeText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Welcome, Admin"
+            android:textColor="#94A3B8"
+            android:textSize="16sp"
+            android:layout_marginBottom="24dp"/>
+
+
+        <!-- Metrics Grid -->
+        <androidx.gridlayout.widget.GridLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:columnCount="2"
+            app:rowCount="3"
+            android:layout_marginBottom="24dp">
+
+            <!-- Total Orders -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_margin="8dp"
+                app:layout_columnWeight="1"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Total Orders"
+                        android:textColor="#94A3B8"
+                        android:textSize="14sp"/>
+
+                    <TextView
+                        android:id="@+id/totalOrders"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"
+                        android:textColor="#FFFFFF"
+                        android:textSize="32sp"
+                        android:textStyle="bold"
+                        android:layout_marginTop="8dp"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Active Orders -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_margin="8dp"
+                app:layout_columnWeight="1"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Active"
+                        android:textColor="#94A3B8"
+                        android:textSize="14sp"/>
+
+                    <TextView
+                        android:id="@+id/activeOrders"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"
+                        android:textColor="#60A5FA"
+                        android:textSize="32sp"
+                        android:textStyle="bold"
+                        android:layout_marginTop="8dp"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Completed Orders -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_margin="8dp"
+                app:layout_columnWeight="1"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Completed"
+                        android:textColor="#94A3B8"
+                        android:textSize="14sp"/>
+
+                    <TextView
+                        android:id="@+id/completedOrders"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"
+                        android:textColor="#10B981"
+                        android:textSize="32sp"
+                        android:textStyle="bold"
+                        android:layout_marginTop="8dp"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Total Revenue -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_margin="8dp"
+                app:layout_columnWeight="1"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Revenue"
+                        android:textColor="#94A3B8"
+                        android:textSize="14sp"/>
+
+                    <TextView
+                        android:id="@+id/totalRevenue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="$0.00"
+                        android:textColor="#FFFFFF"
+                        android:textSize="24sp"
+                        android:textStyle="bold"
+                        android:layout_marginTop="8dp"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Active Washers -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_margin="8dp"
+                app:layout_columnWeight="1"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Washers"
+                        android:textColor="#94A3B8"
+                        android:textSize="14sp"/>
+
+                    <TextView
+                        android:id="@+id/activeWashers"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"
+                        android:textColor="#FFFFFF"
+                        android:textSize="32sp"
+                        android:textStyle="bold"
+                        android:layout_marginTop="8dp"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Total Clients -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_margin="8dp"
+                app:layout_columnWeight="1"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Clients"
+                        android:textColor="#94A3B8"
+                        android:textSize="14sp"/>
+
+                    <TextView
+                        android:id="@+id/totalClients"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"
+                        android:textColor="#FFFFFF"
+                        android:textSize="32sp"
+                        android:textStyle="bold"
+                        android:layout_marginTop="8dp"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+        </androidx.gridlayout.widget.GridLayout>
+
+        <!-- Revenue Chart -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="300dp"
+            app:cardBackgroundColor="#1E293B"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Revenue (Last 7 Days)"
+                    android:textColor="#FFFFFF"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="16dp"/>
+
+                <com.github.mikephil.charting.charts.LineChart
+                    android:id="@+id/revenueChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- MENU GRID -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Management"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginTop="32dp"
+            android:layout_marginBottom="16dp"/>
+
+        <androidx.gridlayout.widget.GridLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:columnCount="2"
+            app:rowCount="3"
+            android:layout_marginBottom="32dp">
+
+            <!-- Orders Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/btnOrders"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_margin="8dp"
+                app:layout_columnWeight="1"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:padding="20dp"
+                    android:gravity="center">
+                    <ImageView
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:src="@drawable/ic_clipboard"
+                        android:background="@drawable/bg_circle_blue"
+                        android:padding="12dp"
+                        app:tint="@color/primary_blue"
+                        android:layout_marginBottom="12dp"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Orders"
+                        android:textColor="@color/white"
+                        android:textSize="16sp"
+                        android:textStyle="bold"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Team Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/btnTeam"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_margin="8dp"
+                app:layout_columnWeight="1"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:padding="20dp"
+                    android:gravity="center">
+                    <ImageView
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:src="@drawable/ic_person"
+                        android:background="@drawable/bg_circle_purple"
+                        android:padding="12dp"
+                        app:tint="#A78BFA"
+                        android:layout_marginBottom="12dp"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Team"
+                        android:textColor="@color/white"
+                        android:textSize="16sp"
+                        android:textStyle="bold"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Services Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/btnServices"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_margin="8dp"
+                app:layout_columnWeight="1"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:padding="20dp"
+                    android:gravity="center">
+                    <ImageView
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:src="@drawable/ic_settings"
+                        android:background="@drawable/bg_circle"
+                        android:padding="12dp"
+                        app:tint="#FFFFFF"
+                        android:layout_marginBottom="12dp"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Services"
+                        android:textColor="@color/white"
+                        android:textSize="16sp"
+                        android:textStyle="bold"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Vehicles Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/btnVehicleTypes"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_margin="8dp"
+                app:layout_columnWeight="1"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:padding="20dp"
+                    android:gravity="center">
+                    <ImageView
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:src="@drawable/ic_car"
+                        android:background="@drawable/bg_circle"
+                        android:padding="12dp"
+                        app:tint="#FFFFFF"
+                        android:layout_marginBottom="12dp"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Vehicles"
+                        android:textColor="@color/white"
+                        android:textSize="16sp"
+                        android:textStyle="bold"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Coupons Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/btnCoupons"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_margin="8dp"
+                app:layout_columnWeight="1"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:padding="20dp"
+                    android:gravity="center">
+                    <ImageView
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:src="@drawable/ic_coupon"
+                        android:background="@drawable/bg_circle"
+                        android:padding="12dp"
+                        app:tint="#FFFFFF"
+                        android:layout_marginBottom="12dp"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Coupons"
+                        android:textColor="@color/white"
+                        android:textSize="16sp"
+                        android:textStyle="bold"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Settings Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/btnSettings"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_margin="8dp"
+                app:layout_columnWeight="1"
+                app:cardBackgroundColor="#1E293B"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:padding="20dp"
+                    android:gravity="center">
+                    <ImageView
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:src="@drawable/ic_settings"
+                        android:background="@drawable/bg_circle"
+                        android:padding="12dp"
+                        app:tint="#FFFFFF"
+                        android:layout_marginBottom="12dp"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Settings"
+                        android:textColor="@color/white"
+                        android:textSize="16sp"
+                        android:textStyle="bold"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </androidx.gridlayout.widget.GridLayout>
+
+        <!-- Logout Button (Full Width) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnLogout"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Log Out"
+            android:textColor="#EF4444"
+            android:textStyle="bold"
+            android:backgroundTint="#1E293B"
+            app:strokeColor="#EF4444"
+            app:strokeWidth="1dp"
+            app:cornerRadius="12dp"
+            android:layout_marginBottom="24dp"/>
+
+    </LinearLayout>
+</ScrollView>

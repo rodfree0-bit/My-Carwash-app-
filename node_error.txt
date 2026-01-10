@@ -1,0 +1,69 @@
+﻿node : C:\Users\rodri
+go\Documents\my 
+carwash app ia studio
+\functions\index.js:6
+31
+En línea: 1 
+Carácter: 1
++ node 
+functions/index.js 
+2>&1 | out-file 
+-encoding utf8 
+node_error.txt ...
++ ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (C:\User   
+ s\rodrig...ns\in    
+dex.js:631:Strin    
+g) [], RemoteExc    
+eption
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+    .schedule('every 
+5 minutes')
+     ^
+
+TypeError: functions.
+pubsub.schedule is 
+not a function
+    at 
+Object.<anonymous> (C
+:\Users\rodrigo\Docum
+ents\my carwash app 
+ia studio\functions\i
+ndex.js:631:6)
+    at 
+Module._compile (node
+:internal/modules/cjs
+/loader:1761:14)
+    at Object..js (no
+de:internal/modules/c
+js/loader:1893:10)
+    at Module.load (n
+ode:internal/modules/
+cjs/loader:1481:32)
+    at Module._load (
+node:internal/modules
+/cjs/loader:1300:12)
+    at TracingChannel
+.traceSync (node:diag
+nostics_channel:328:1
+4)
+    at 
+wrapModuleLoad (node:
+internal/modules/cjs/
+loader:245:24)
+    at Module.execute
+UserEntryPoint [as 
+runMain] (node:intern
+al/modules/run_main:1
+54:5)
+    at node:internal/
+main/run_main_module:
+33:47
+
+Node.js v24.11.1

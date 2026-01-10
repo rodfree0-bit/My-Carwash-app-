@@ -1,0 +1,7 @@
+{
+  "name": "My Carwash app",
+  "description": "A comprehensive car detailing application featuring separate flows for Clients, Washers, and Administrators. Includes booking management, real-time analytics, team tracking, and service scheduling.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

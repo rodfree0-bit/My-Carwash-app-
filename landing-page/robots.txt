@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://my-carwashapp-e6aba.web.app/sitemap.xml

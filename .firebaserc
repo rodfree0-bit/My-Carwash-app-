@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "my-carwashapp-e6aba",
+    "production": "my-carwashapp-e6aba"
+  },
+  "targets": {},
+  "etags": {}
+}

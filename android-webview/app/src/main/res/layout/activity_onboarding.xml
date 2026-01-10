@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".OnboardingActivity">
+
+    <ViewFlipper
+        android:id="@+id/carouselFlipper"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:inAnimation="@android:anim/fade_in"
+        android:outAnimation="@android:anim/fade_out"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/bg_login_1" />
+
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ceramic_coating" />
+
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/wheel_polish" />
+
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/paint_restoration" />
+
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/interior_detail" />
+
+    </ViewFlipper>
+
+    <View
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#A6000000"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:id="@+id/app_logo"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:src="@drawable/logo_carwash"
+        android:layout_marginTop="60dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:contentDescription="@string/app_name" />
+
+    <TextView
+        android:id="@+id/title_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="My Carwash app"
+        android:textColor="@android:color/white"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toBottomOf="@id/app_logo"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <TextView
+        android:id="@+id/subtitle_text"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="40dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="40dp"
+        android:gravity="center"
+        android:text="Premium Hand Wash"
+        android:textColor="#007AFF"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toBottomOf="@+id/title_text"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <TextView
+        android:id="@+id/description_text"
+        android:layout_width="0dp"
+        android:layout_height="80dp"
+        android:layout_marginStart="40dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="40dp"
+        android:gravity="center"
+        android:text="Expert care with meticulous attention to every detail"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
+        app:layout_constraintTop_toBottomOf="@+id/subtitle_text"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <LinearLayout
+        android:id="@+id/dots_indicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:orientation="horizontal"
+        app:layout_constraintTop_toBottomOf="@+id/description_text"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <View
+            android:id="@+id/dot0"
+            android:layout_width="4dp"
+            android:layout_height="4dp"
+            android:background="@drawable/dot_active" />
+        <View
+            android:id="@+id/dot1"
+            android:layout_width="4dp"
+            android:layout_height="4dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/dot_inactive" />
+        <View
+            android:id="@+id/dot2"
+            android:layout_width="4dp"
+            android:layout_height="4dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/dot_inactive" />
+        <View
+            android:id="@+id/dot3"
+            android:layout_width="4dp"
+            android:layout_height="4dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/dot_inactive" />
+        <View
+            android:id="@+id/dot4"
+            android:layout_width="4dp"
+            android:layout_height="4dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/dot_inactive" />
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btnCreateAccount"
+        android:layout_width="0dp"
+        android:layout_height="60dp"
+        android:layout_marginStart="32dp"
+        android:layout_marginEnd="32dp"
+        android:layout_marginBottom="16dp"
+        android:backgroundTint="#007AFF"
+        android:text="Create Account"
+        android:textAllCaps="false"
+        android:textColor="@android:color/white"
+        android:textSize="18sp"
+        app:cornerRadius="16dp"
+        app:layout_constraintBottom_toTopOf="@+id/btnIHaveAccount"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <Button
+        android:id="@+id/btnIHaveAccount"
+        style="@style/Widget.AppCompat.Button.Borderless"
+        android:layout_width="0dp"
+        android:layout_height="60dp"
+        android:layout_marginStart="32dp"
+        android:layout_marginEnd="32dp"
+        android:layout_marginBottom="48dp"
+        android:background="@drawable/dark_button_background"
+        android:text="I have an account"
+        android:textAllCaps="false"
+        android:textColor="@android:color/white"
+        android:textSize="18sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

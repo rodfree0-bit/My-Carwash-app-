@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="12dp"
+    app:cardBackgroundColor="#1E293B"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Header Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:id="@+id/tvOrderNumber"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="#ABC123"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvOrderStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="COMPLETADA"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_status_badge"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="4dp" />
+        </LinearLayout>
+
+        <!-- Date & Time -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📅 "
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tvOrderDate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Dec 8, 2024 at 2:00 PM"
+                android:textColor="#94A3B8"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <!-- Address -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📍 "
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tvOrderAddress"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="123 Main St, City"
+                android:textColor="#94A3B8"
+                android:textSize="13sp"
+                android:maxLines="1"
+                android:ellipsize="end" />
+        </LinearLayout>
+
+        <!-- Total -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💵 Total: "
+                android:textColor="#94A3B8"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/tvOrderTotal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="$50.00"
+                android:textColor="#10B981"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Action Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnViewDetails"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:text="Ver Detalles"
+                android:textColor="#FFFFFF"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                app:strokeColor="#475569"
+                app:strokeWidth="2dp"
+                app:cornerRadius="8dp"
+                android:layout_marginEnd="8dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnReorder"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:text="Reordenar"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#3B82F6"
+                app:cornerRadius="8dp"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

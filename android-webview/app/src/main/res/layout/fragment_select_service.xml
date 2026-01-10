@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/vehicleIndicator"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Vehicle 1 of 2: Tesla Model 3"
+        android:textColor="#60A5FA"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"/>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerServices"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"/>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnNext"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="Next: Add-ons"
+        android:textColor="#000000"
+        android:backgroundTint="#60A5FA"
+        android:enabled="false"
+        android:layout_marginTop="16dp"/>
+
+</LinearLayout>

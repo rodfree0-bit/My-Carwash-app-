@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/vehicleIndicator"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Vehicle 1 of 2: Tesla Model 3"
+        android:textColor="#60A5FA"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp"/>
+
+    <TextView
+        android:id="@+id/priceIndicator"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Current Total: $49.00"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Optional Add-ons"
+        android:textColor="#94A3B8"
+        android:textSize="14sp"
+        android:layout_marginBottom="12dp"/>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerAddons"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"/>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnSkip"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="Skip Add-ons"
+        android:textColor="#60A5FA"
+        android:backgroundTint="#1E293B"
+        android:layout_marginTop="16dp"/>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnNext"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="Next: Date &amp;amp; Time"
+        android:textColor="#000000"
+        android:backgroundTint="#60A5FA"
+        android:layout_marginTop="8dp"/>
+
+</LinearLayout>
