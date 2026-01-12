@@ -1,0 +1,25 @@
+{
+    "fields": {
+        "title": {
+            "stringValue": "The Importance of Regular Waxing"
+        },
+        "content": {
+            "stringValue": "Protect your car's paint from the harsh Los Angeles sun! Regular waxing creates a barrier against UV rays, bird droppings, and industrial fallout.\n\nWe recommend a high-quality carnauba wax every 3 months to maintain that showroom shine and protect your investment."
+        },
+        "keywords": {
+            "arrayValue": {
+                "values": [
+                    {
+                        "stringValue": "waxing"
+                    },
+                    {
+                        "stringValue": "paint protection"
+                    }
+                ]
+            }
+        },
+        "updatedAt": {
+            "timestampValue": "2024-01-11T12:00:00Z"
+        }
+    }
+}

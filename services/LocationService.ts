@@ -1,4 +1,4 @@
-import { doc, updateDoc, onSnapshot, Timestamp } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export interface Location {
@@ -6,8 +6,8 @@ export interface Location {
     longitude: number;
     timestamp: number;
     accuracy?: number;
-    heading?: number;
-    speed?: number;
+    heading?: number | null;
+    speed?: number | null;
 }
 
 export class LocationService {
@@ -40,17 +40,17 @@ export class LocationService {
                         longitude: position.coords.longitude,
                         timestamp: position.timestamp,
                         accuracy: position.coords.accuracy,
-                        heading: position.coords.heading || undefined,
-                        speed: position.coords.speed || undefined,
+                        heading: position.coords.heading || null,
+                        speed: position.coords.speed || null,
                     };
 
                     try {
                         // Update washer's current location in Firestore
                         const washerRef = doc(db, 'team', washerId);
-                        await updateDoc(washerRef, {
+                        await setDoc(washerRef, {
                             currentLocation: location,
                             lastLocationUpdate: Timestamp.now(),
-                        });
+                        }, { merge: true });
 
                         // If tracking for a specific order, update order location too
                         if (orderId) {
@@ -111,8 +111,8 @@ export class LocationService {
                         longitude: position.coords.longitude,
                         timestamp: position.timestamp,
                         accuracy: position.coords.accuracy,
-                        heading: position.coords.heading || undefined,
-                        speed: position.coords.speed || undefined,
+                        heading: position.coords.heading || null,
+                        speed: position.coords.speed || null,
                     });
                 },
                 (error) => reject(error),
@@ -206,37 +206,46 @@ export class LocationService {
     /**
      * Calculate ETA using Google Maps Directions API (Real-time traffic)
      */
+    /**
+     * Calculate ETA using Google Maps Directions API (via Cloud Function Proxy)
+     */
     static async getRouteETA(
         originLat: number,
         originLon: number,
         destLat: number,
         destLon: number
     ): Promise<{ duration: number; distance: number }> {
-        const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-        if (!apiKey) {
-            console.warn('Google Maps API Key not found, falling back to simple calculation');
-            const distance = this.calculateDistance(originLat, originLon, destLat, destLon);
-            return {
-                duration: Math.round((distance / 40) * 60),
-                distance
-            };
-        }
-
         try {
-            const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${originLat},${originLon}&destination=${destLat},${destLon}&key=${apiKey}`;
-            const response = await fetch(url);
-            const data = await response.json();
+            const { functions } = await import('../firebase');
+            const { httpsCallable } = await import('firebase/functions');
 
-            if (data.status === 'OK' && data.routes.length > 0) {
-                const leg = data.routes[0].legs[0];
+            const calculateRouteETA = httpsCallable(functions, 'calculateRouteETA');
+            const result = await calculateRouteETA({
+                originLat,
+                originLon,
+                destLat,
+                destLon
+            });
+
+            const data = result.data as any;
+
+            if (data.status === 'OK') {
                 return {
-                    duration: Math.ceil(leg.duration.value / 60), // minutes
-                    distance: leg.distance.value / 1000 // km
+                    duration: data.duration,
+                    distance: data.distance
+                };
+            } else {
+                console.warn('Route calculation returned non-OK status:', data);
+                // Fallback
+                const distance = this.calculateDistance(originLat, originLon, destLat, destLon);
+                return {
+                    duration: Math.round((distance / 40) * 60),
+                    distance
                 };
             }
-            throw new Error(data.status || 'Failed to get directions');
         } catch (error) {
-            console.error('Error fetching Google Maps ETA:', error);
+            console.error('Error fetching Google Maps ETA via proxy:', error);
+            // Fallback
             const distance = this.calculateDistance(originLat, originLon, destLat, destLon);
             return {
                 duration: Math.round((distance / 40) * 60),

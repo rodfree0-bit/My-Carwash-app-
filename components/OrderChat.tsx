@@ -8,7 +8,7 @@ interface OrderChatProps {
     otherUserId: string;
     otherUserName: string;
     messages: Message[];
-    sendMessage: (senderId: string, receiverId: string, orderId: string, content: string, type?: 'text' | 'image') => void;
+    sendMessage: (senderId: string, receiverId: string, orderId: string, content: string, type?: 'text' | 'image') => Promise<void>;
     isOpen: boolean;
     onClose: () => void;
 }
@@ -82,8 +82,8 @@ export const OrderChat: React.FC<OrderChatProps> = ({
                         return (
                             <div key={index} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`max-w-[75%] px-3 py-2 rounded-2xl ${isMe
-                                        ? 'bg-primary text-white rounded-br-sm'
-                                        : 'bg-white/10 text-white rounded-bl-sm'
+                                    ? 'bg-primary text-white rounded-br-sm'
+                                    : 'bg-white/10 text-white rounded-bl-sm'
                                     }`}>
                                     <p className="text-sm">{msg.content}</p>
                                     <p className={`text-[10px] mt-1 ${isMe ? 'text-white/60' : 'text-slate-500'}`}>

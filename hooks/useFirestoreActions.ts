@@ -729,6 +729,17 @@ export const useFirestoreActions = () => {
                 timestamp: Date.now(),
                 read: false
             });
+
+            // Auto-generate notification for the receiver
+            await addNotification(
+                receiverId,
+                'New Message',
+                type === 'image' ? 'Sent you an image' : content.length > 50 ? `${content.substring(0, 47)}...` : content,
+                'info',
+                'CLIENT_HOME', // This is a general link, the client/washer will handle specialized opening
+                orderId
+            );
+
             return "success";
         } catch (error) {
             console.error("Error sending message:", error);

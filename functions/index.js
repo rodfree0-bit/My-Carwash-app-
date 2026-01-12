@@ -111,7 +111,8 @@ exports.onNewOrderCreated = onDocumentCreated({
                     type: "new_order",
                     orderId: orderId,
                     screen: userData.role === 'admin' ? "ADMIN_DASHBOARD" : "WASHER_JOB_DETAILS",
-                    targetRole: userData.role
+                    targetRole: userData.role,
+                    targetUserId: userId
                 }
             )
         );
@@ -786,4 +787,260 @@ exports.scheduledSeoUpdate = onSchedule({
     }
 
     return null;
+});
+
+// ============================================
+// 12. SQUARE PAYMENT INTEGRATION
+// ============================================
+
+// Helper: Verify Auth Token
+async function verifyAuth(req) {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            console.warn('⚠️ Missing or invalid authorization header');
+            return null;
+        }
+        const token = authHeader.split('Bearer ')[1];
+        const decodedToken = await admin.auth().verifyIdToken(token);
+        return { uid: decodedToken.uid, email: decodedToken.email || '' };
+    } catch (error) {
+        console.error('❌ Auth verification failed:', error);
+        return null;
+    }
+}
+
+// Helper: Rate Limiting
+async function checkPaymentRateLimit(userId) {
+    try {
+        const db = getFirestore(); // Admin SDK
+        const rateLimitRef = db.collection('rate_limits').doc(`${userId}_payment`);
+        const rateLimitDoc = await rateLimitRef.get();
+        const now = Date.now();
+        const windowMs = 60 * 60 * 1000; // 1 hour
+        const maxAttempts = 15;
+
+        if (!rateLimitDoc.exists) {
+            await rateLimitRef.set({
+                count: 1,
+                windowStart: admin.firestore.Timestamp.now(),
+                lastAttempt: admin.firestore.Timestamp.now(),
+                action: 'payment_attempt',
+                userId
+            });
+            return { allowed: true };
+        }
+
+        const data = rateLimitDoc.data();
+        const windowStartMs = data.windowStart.toMillis();
+        const windowEndMs = windowStartMs + windowMs;
+
+        if (now > windowEndMs) {
+            await rateLimitRef.set({
+                count: 1,
+                windowStart: admin.firestore.Timestamp.now(),
+                lastAttempt: admin.firestore.Timestamp.now(),
+                action: 'payment_attempt',
+                userId
+            });
+            return { allowed: true };
+        }
+
+        if (data.count >= maxAttempts) {
+            const minutesUntilReset = Math.ceil((windowEndMs - now) / (60 * 1000));
+            return { allowed: false, message: `Too many payment attempts. Try again in ${minutesUntilReset} minutes.` };
+        }
+
+        await rateLimitRef.update({
+            count: admin.firestore.FieldValue.increment(1),
+            lastAttempt: admin.firestore.Timestamp.now()
+        });
+
+        return { allowed: true };
+    } catch (error) {
+        console.error('Error checking rate limit:', error);
+        return { allowed: true }; // Fail open
+    }
+}
+
+exports.createSquarePayment = onRequest({
+    memory: "256MiB",
+    region: "us-central1"
+}, async (req, res) => {
+    // CORS
+    res.set('Access-Control-Allow-Origin', '*');
+    if (req.method === 'OPTIONS') {
+        res.set('Access-Control-Allow-Methods', 'POST');
+        res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.status(204).send('');
+        return;
+    }
+
+    if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method Not Allowed' });
+        return;
+    }
+
+    try {
+        // 1. Auth
+        const auth = await verifyAuth(req);
+        if (!auth) {
+            res.status(401).json({ error: 'Unauthorized', message: 'You must be logged in' });
+            return;
+        }
+
+        // 2. Rate Limit
+        const rateLimit = await checkPaymentRateLimit(auth.uid);
+        if (!rateLimit.allowed) {
+            res.status(429).json({ error: 'Too Many Requests', message: rateLimit.message });
+            return;
+        }
+
+        // 3. Input Validation
+        const data = req.body;
+        if (!data.amount || !data.sourceId || !data.orderId) {
+            res.status(400).json({ error: 'Invalid Input', message: 'Missing required fields' });
+            return;
+        }
+
+        // 4. Order Verification
+        const db = getFirestore();
+        const orderRef = db.collection('orders').doc(data.orderId);
+        const orderDoc = await orderRef.get();
+        if (!orderDoc.exists) {
+            res.status(404).json({ error: 'Order not found' });
+            return;
+        }
+        if (orderDoc.data().clientId !== auth.uid) {
+            res.status(403).json({ error: 'Forbidden' });
+            return;
+        }
+
+        // 5. Square Init
+        // Use try/catch for import as well
+        let SquareClient;
+        try {
+            const squarePkg = require("square");
+            SquareClient = squarePkg.SquareClient || squarePkg.Client;
+        } catch (e) {
+            console.error("Failed to require square:", e);
+            throw new Error("Square SDK Error");
+        }
+
+        const client = new SquareClient({
+            bearerAuthCredentials: {
+                accessToken: process.env.SQUARE_ACCESS_TOKEN
+            },
+            environment: 'sandbox'
+        });
+
+        // 6. Create Payment
+        // JSON.parse(JSON.stringify(...)) hack for BigInt if needed, but Square SDK handles BigInt
+        const amountInCents = BigInt(Math.round(data.amount * 100));
+
+        const { result } = await client.paymentsApi.createPayment({
+            sourceId: data.sourceId,
+            idempotencyKey: data.orderId, // Simple idempotency
+            amountMoney: {
+                amount: amountInCents,
+                currency: 'USD'
+            },
+            locationId: process.env.SQUARE_LOCATION_ID,
+            buyerEmailAddress: auth.email,
+            note: `Order ${data.orderId}`
+        });
+
+        console.log(`✅ Payment created: ${result.payment.id}`);
+
+        // Log to security
+        await db.collection('security_logs').add({
+            type: 'payment_created',
+            userId: auth.uid,
+            paymentId: result.payment.id,
+            amount: data.amount,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Update Order Status to Paid? Or Client handles that?
+        // Usually we update order here to avoid race conditions
+        await orderRef.update({
+            paymentStatus: 'paid',
+            paymentId: result.payment.id,
+            paymentMethod: 'square',
+            paidAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Handle BigInt serialization for JSON response
+        const responseData = {
+            paymentId: result.payment.id,
+            status: result.payment.status,
+            amount: data.amount
+        };
+
+        res.status(200).json(responseData);
+
+    } catch (error) {
+        console.error('Payment Error:', error);
+
+        // Handle BigInt serialization in error if needed by not sending raw error object
+        let msg = 'Payment failed';
+        if (error.errors && error.errors.length > 0) {
+            msg = error.errors[0].detail || error.errors[0].category;
+        } else if (error.message) {
+            msg = error.message;
+        }
+
+        res.status(500).json({ error: 'Payment Failed', message: msg });
+    }
+});
+// ============================================
+// GOOGLE MAPS ROUTE PROXY
+// ============================================
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const axios = require("axios");
+
+exports.calculateRouteETA = onCall({ cors: true }, async (request) => {
+    // Check authentication
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
+
+    const { originLat, originLon, destLat, destLon } = request.data;
+
+    // Validate inputs
+    if (!originLat || !originLon || !destLat || !destLon) {
+        throw new HttpsError('invalid-argument', 'Missing origin or destination coordinates.');
+    }
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY;
+
+    if (!apiKey) {
+        console.error("❌ Google Maps API Key missing in environment");
+        throw new HttpsError('failed-precondition', 'Server configuration error.');
+    }
+
+    try {
+        const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${originLat},${originLon}&destination=${destLat},${destLon}&key=${apiKey}`;
+
+        const response = await axios.get(url);
+        const data = response.data;
+
+        if (data.status === 'OK' && data.routes.length > 0) {
+            const leg = data.routes[0].legs[0];
+            return {
+                duration: Math.ceil(leg.duration.value / 60), // minutes
+                distance: leg.distance.value / 1000, // km
+                status: 'OK'
+            };
+        } else {
+            console.error("Google Maps API returned non-OK status:", data.status);
+            return {
+                status: 'ERROR',
+                message: data.status || 'No route found'
+            };
+        }
+    } catch (error) {
+        console.error("❌ Error fetching route:", error);
+        throw new HttpsError('internal', 'Failed to fetch directions.');
+    }
 });

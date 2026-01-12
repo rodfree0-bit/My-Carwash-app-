@@ -7,6 +7,7 @@ import { useToast } from './Toast';
 import { FloatingChatButton } from './FloatingChatButton';
 // import { ChatModal } from './ChatModal';
 import { PaymentModal } from './PaymentModal';
+import { TrackingUI } from './TrackingUI';
 import { NotificationService } from '../services/NotificationService';
 import { LiveMap } from './LiveMap';
 import { TrackingMap } from './TrackingMap';
@@ -43,14 +44,14 @@ interface ClientProps {
   team: import('../types').TeamMember[];
   vehicleTypes: any[]; // VehicleTypeConfig[] | any[]
   createOrder: (data: Partial<Order>) => Promise<string>;
-  updateOrder: (id: string, data: Partial<Order>) => void;
-  cancelOrder: (id: string) => void;
+  updateOrder: (id: string, data: Partial<Order>) => Promise<void>;
+  cancelOrder: (id: string, applyFee?: boolean) => Promise<void>;
   newOrderDraft: Partial<Order>;
   setNewOrderDraft: (data: Partial<Order>) => void;
   notifications: Notification[];
   addNotification: (userId: string, title: string, message: string, type: NotificationType, linkTo?: Screen, relatedId?: string) => void;
   messages: Message[];
-  sendMessage: (senderId: string, receiverId: string, orderId: string, content: string, type?: 'text' | 'image') => void;
+  sendMessage: (senderId: string, receiverId: string, orderId: string, content: string, type?: 'text' | 'image') => Promise<void>;
   createIssue: (issueData: Omit<IssueReport, 'id' | 'timestamp' | 'status'>) => void;
   updateProfile: (updates: any) => Promise<void>;
   logout: () => void;
@@ -248,6 +249,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
     console.log('📝 ===== CONFIRMING ORDER =====');
     console.log('💰 Final Total:', finalTotal);
     console.log('🚗 Vehicle Configs:', vehicleConfigs);
+
     console.log('📋 Temp Selected Vehicles:', tempSelectedVehicles);
     console.log('📅 Date/Time:', selectedDate, selectedTime);
     console.log('📍 Address:', selectedAddress);
@@ -313,7 +315,8 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
     fetchWeather();
   }, []);
 
-  // --- AUTO-RECOVERY: Restore Vehicles from Order History ---
+  // --- AUTO-RECOVERY ENABLED: FALSE (Causing data loss/overwrite on profile load race conditions) ---
+  /*
   useEffect(() => {
     const recoverVehicles = async () => {
       // Only run if user has NO saved vehicles but HAS orders
@@ -375,6 +378,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
 
     recoverVehicles();
   }, [orders, user.savedVehicles]);
+  */
 
 
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
@@ -415,6 +419,34 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
       }
     }
   }, [orders, optimisticOrders]);
+
+  // Auto-open Chat Logic for Client & Message Toasts
+  useEffect(() => {
+    if (messages.length === 0) return;
+
+    const lastMsg = messages[messages.length - 1];
+
+    // Only act on messages received by the current user that are UNREAD
+    if (lastMsg.receiverId === user.id && !lastMsg.read) {
+      const isRelatedToActiveOrder = orders.some(o =>
+        o.id === lastMsg.orderId &&
+        ['Assigned', 'En Route', 'Arrived', 'In Progress'].includes(o.status)
+      );
+
+      if (isRelatedToActiveOrder) {
+        console.log("📨 New message received for active order");
+
+        // 1. Show Toast if chat is not already open
+        if (!showOrderChat) {
+          showNativeToast(`New message: ${lastMsg.content.substring(0, 30)}${lastMsg.content.length > 30 ? '...' : ''}`, 'info');
+
+          // 2. Auto-open chat
+          setShowOrderChat(true);
+          triggerNativeHaptic();
+        }
+      }
+    }
+  }, [messages, orders, user.id, showOrderChat]);
 
   const handleEditVehicle = (vehicle: SavedVehicle) => {
     setEditingVehicle(vehicle);
@@ -1211,7 +1243,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
     </div>
   );
 
-  const GlobalModals = () => (
+  const renderGlobalModals = () => (
     <>
       <AddVehicleModal
         isOpen={showAddVehicleModal}
@@ -1273,437 +1305,22 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
 
       {/* Tracking Modal */}
       {activeTrackingOrder && (
-        <div className="fixed inset-0 z-50 bg-gradient-to-b from-black via-slate-950 to-black flex flex-col">
-          {/* Header */}
-          <div className={`flex items-center justify-between px-4 py-4 z-50 transition-all ${activeTrackingOrder.status === 'En Route' ? 'bg-transparent absolute top-0 left-0 right-0' : 'bg-black/40 backdrop-blur-md border-b border-white/10'}`}>
-            <button onClick={() => setTrackingOrderId(null)} className="text-white p-2 hover:bg-white/10 rounded-full transition-colors active:scale-90">
-              <span className="material-symbols-outlined">arrow_back_ios_new</span>
-            </button>
-            <h1 className="font-black uppercase tracking-[0.2em] text-sm">{activeTrackingOrder.status === 'En Route' ? '' : 'Order Tracking'}</h1>
-            <div className="w-10 h-10 rounded-full border-2 border-[#3b82f6]/30 overflow-hidden bg-white/5 shadow-blue">
-              {user.avatar ? (
-                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#3b82f6] to-blue-600 text-[10px] font-black text-white">
-                  {user.name?.charAt(0)}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Main Status Views */}
-          <div className="flex-1 flex flex-col relative overflow-hidden">
-
-            {/* 1. PENDING (Searching) */}
-            {activeTrackingOrder.status === 'Pending' ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in bg-gradient-to-b from-black via-[#3b82f6]/10 to-black relative">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#3b82f620_0%,_transparent_70%)] pointer-events-none"></div>
-                <div className="relative w-48 h-48 mb-8 flex items-center justify-center">
-                  <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping opacity-75"></div>
-                  <div className="absolute inset-4 bg-primary/30 rounded-full animate-ping opacity-75" style={{ animationDelay: '0.5s' }}></div>
-                  <div className="relative w-36 h-36 rounded-full bg-gradient-to-br from-[#3b82f6]/30 to-blue-400/30 flex items-center justify-center border-2 border-primary/50 shadow-blue-lg">
-                    <div className="w-28 h-28 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/10">
-                      <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain animate-pulse" />
-                    </div>
-                  </div>
-                  <div className="absolute inset-0 animate-[spin_4s_linear_infinite]">
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-4 bg-primary rounded-full shadow-blue"></div>
-                  </div>
-                </div>
-                <h2 className="text-4xl font-black mb-4 text-white drop-shadow-blue tracking-tight">Finding a Washer</h2>
-                <div className="space-y-2">
-                  <p className="text-slate-300 font-medium">We are contacting nearby washers...</p>
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
-                  </div>
-                </div>
-              </div>
-
-              /* 2. ASSIGNED (Not yet En Route) */
-            ) : activeTrackingOrder.status === 'Assigned' || (activeTrackingOrder.status as any) === 'Washer Assigned' || (activeTrackingOrder.status as any) === 'Accepted' ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in bg-gradient-to-b from-black via-slate-900 to-black w-full">
-                <div className="relative w-56 h-56 mb-10 flex items-center justify-center">
-                  <div className="absolute inset-0 bg-primary/10 rounded-full animate-[pulse_3s_ease-in-out_infinite]"></div>
-                  <div className="absolute inset-8 bg-primary/20 rounded-full animate-[pulse_3s_ease-in-out_infinite_0.5s]"></div>
-                  <div className="relative w-40 h-40 rounded-full bg-gradient-to-br from-[#3b82f6]/30 to-blue-500/30 flex items-center justify-center border-4 border-primary/40 shadow-blue-lg">
-                    <div className="w-full h-full rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center overflow-hidden">
-                      <img src="/logo.png" alt="Logo" className="w-24 h-24 object-contain animate-float" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mb-8 p-5 bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 max-w-sm w-full animate-slide-up">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-gradient-to-br from-[#3b82f6] to-blue-600 rounded-full flex items-center justify-center shadow-lg overflow-hidden border-2 border-white/10">
-                      {activeTrackingOrder.washerAvatar ? (
-                        <img src={activeTrackingOrder.washerAvatar} alt={activeTrackingOrder.washerName} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="material-symbols-outlined text-white text-3xl">person</span>
-                      )}
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="text-[10px] text-primary uppercase font-black tracking-widest mb-1">Washer Assigned</p>
-                      <p className="font-black text-white text-xl leading-tight">{activeTrackingOrder.washerName}</p>
-                      <div className="flex items-center gap-1 text-amber-400">
-                        <span className="material-symbols-outlined text-xs filled">star</span>
-                        <span className="text-xs font-bold">5.0</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <h2 className="text-4xl font-black mb-4 text-primary shadow-blue animate-pulse tracking-tight">
-                  He's getting ready!
-                </h2>
-                <p className="text-slate-300 leading-relaxed max-w-[280px] mx-auto mb-10 text-lg">
-                  <span className="text-primary font-black">{activeTrackingOrder.washerName?.split(' ')[0] || 'Your washer'}</span> is preparing the equipment and will start heading your way shortly.
-                </p>
-
-                <button
-                  onClick={() => setShowOrderChat(true)}
-                  className="w-full max-w-[300px] py-4.5 bg-[#1a1a1c] border border-white/10 rounded-2xl font-black text-white flex items-center justify-center gap-3 active:scale-95 transition-all uppercase tracking-[0.2em] text-xs"
-                >
-                  <span className="material-symbols-outlined text-lg">chat</span>
-                  Message Washer
-                </button>
-              </div>
-
-              /* 3. EN ROUTE */
-            ) : activeTrackingOrder.status === 'En Route' ? (
-              <div className="flex-1 relative bg-black overflow-hidden flex flex-col">
-                {/* Full Screen Map Background */}
-                {(() => {
-                  const washerLoc = activeTrackingOrder.washerLocation as any;
-                  console.log('🗺️ Rendering TrackingMap with:', {
-                    hasWasherLocation: !!activeTrackingOrder.washerLocation,
-                    hasClientLocation: !!activeTrackingOrder.location,
-                    washerLat: washerLoc?.latitude || washerLoc?.lat,
-                    washerLng: washerLoc?.longitude || washerLoc?.lng,
-                    clientLat: activeTrackingOrder.location?.lat,
-                    clientLng: activeTrackingOrder.location?.lng,
-                    status: activeTrackingOrder.status
-                  });
-                  return null;
-                })()}
-                <TrackingMap
-                  washerLocation={activeTrackingOrder.washerLocation}
-                  clientLocation={activeTrackingOrder.location}
-                  status={activeTrackingOrder.status}
-                  serviceRadius={20}
-                  washerName={activeTrackingOrder.washerName || 'Your Washer'}
-                  eta={Number(activeTrackingOrder.estimatedArrival) || 10}
-                />
-
-                {/* Overlays */}
-                <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 pb-12">
-                  {/* Top Status Card */}
-                  <div className="animate-slide-in-top">
-                    <div className="bg-black/80 backdrop-blur-xl border border-[#3b82f6]/20 p-5 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.8)] flex items-center gap-5">
-                      <div className="relative">
-                        <div className="w-16 h-16 bg-gradient-to-br from-[#3b82f6] to-blue-600 rounded-full flex items-center justify-center overflow-hidden border-2 border-white/20">
-                          {activeTrackingOrder.washerAvatar ? (
-                            <img src={activeTrackingOrder.washerAvatar} alt={activeTrackingOrder.washerName} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="material-symbols-outlined text-white text-3xl">person</span>
-                          )}
-                        </div>
-                        <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-black flex items-center justify-center">
-                          <span className="material-symbols-outlined text-white text-[14px]">bolt</span>
-                        </div>
-                      </div>
-
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-pulse"></span>
-                          <h3 className="text-[#3b82f6] font-black text-[10px] uppercase tracking-[0.25em]">Heading to you</h3>
-                        </div>
-                        <p className="text-white text-lg font-black leading-tight">
-                          <span className="text-[#3b82f6]">{activeTrackingOrder.washerName?.split(' ')[0] || 'Carlos'}</span> is on his way
-                        </p>
-                      </div>
-
-                      <div className="bg-white/5 rounded-2xl px-4 py-2 text-center border border-white/5">
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">ETA</p>
-                        <p className="text-[#3b82f6] text-2xl font-black">
-                          {(() => {
-                            // Extract numbers and ensure we don't duplicate 'm'
-                            const rawEta = String(activeTrackingOrder.estimatedArrival || '10');
-                            const numbersOnly = rawEta.replace(/[^0-9]/g, '');
-                            return (numbersOnly || '10');
-                          })()}m
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Bottom Actions Overlay */}
-                  <div className="pointer-events-auto animate-slide-in-bottom">
-                    <button
-                      onClick={() => setShowOrderChat(true)}
-                      className="w-full py-5 bg-black/80 backdrop-blur-xl border border-white/10 rounded-3xl font-black text-white flex items-center justify-center gap-3 active:scale-95 transition-all shadow-2xl uppercase tracking-[0.25em] text-xs hover:border-[#3b82f6]/40"
-                    >
-                      <span className="material-symbols-outlined text-xl text-[#3b82f6]">chat_bubble</span>
-                      Message {activeTrackingOrder.washerName?.split(' ')[0] || 'Washer'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              /* 4. ARRIVED */
-            ) : activeTrackingOrder.status === 'Arrived' ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in bg-gradient-to-b from-black via-[#3b82f6]/10 to-black w-full">
-                <div className="relative w-56 h-56 mb-10 flex items-center justify-center">
-                  <div className="absolute inset-0 bg-[#3b82f6]/20 rounded-full animate-ping opacity-75"></div>
-                  <div className="relative w-40 h-40 rounded-full bg-gradient-to-br from-[#3b82f6]/40 to-blue-500/20 flex items-center justify-center border-4 border-[#3b82f6]/50 shadow-blue-lg">
-                    <span className="material-symbols-outlined text-7xl text-[#3b82f6] animate-pulse">location_on</span>
-                  </div>
-                </div>
-
-                <div className="mb-10 p-5 bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 max-w-[340px] w-full animate-slide-up">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-gradient-to-br from-[#3b82f6] to-blue-600 rounded-full flex items-center justify-center shadow-lg overflow-hidden border-2 border-white/10">
-                      {activeTrackingOrder.washerAvatar ? (
-                        <img src={activeTrackingOrder.washerAvatar} alt={activeTrackingOrder.washerName} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="material-symbols-outlined text-white text-3xl">person</span>
-                      )}
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="text-[10px] text-primary uppercase font-black tracking-widest mb-1">Washer is Here</p>
-                      <p className="font-black text-white text-xl leading-tight">{activeTrackingOrder.washerName}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <h2 className="text-4xl font-black mb-4 text-primary shadow-blue animate-pulse tracking-tight">Ready to Start!</h2>
-                <p className="text-slate-300 leading-snug max-w-[280px] mx-auto mb-10 text-lg">Your washer has arrived. Please approve to begin the service.</p>
-
-                <div className="w-full max-w-sm space-y-4 relative z-20">
-                  <button
-                    onClick={async () => {
-                      try {
-                        // FIX: Only set authorized, don't force status to In Progress yet!
-                        // This allows washer to take "Before" photos.
-                        await updateOrder(activeTrackingOrder.id, { clientAuthorized: true });
-                        showNativeToast('Service authorized!');
-                      } catch (error) {
-                        console.error('Error approving:', error);
-                      }
-                    }}
-                    className="w-full bg-primary py-4 rounded-xl font-black text-white hover:bg-primary-dark transition-all transform active:scale-95 flex items-center justify-center gap-2 shadow-blue-lg uppercase tracking-widest text-sm"
-                  >
-                    <span className="material-symbols-outlined text-xl">play_circle</span>
-                    Authorize Start
-                  </button>
-
-                  <button
-                    onClick={() => setShowOrderChat(true)}
-                    className="w-full bg-white/5 border border-white/10 py-4 rounded-xl font-bold text-white hover:bg-white/10 transition-all flex items-center justify-center gap-2"
-                  >
-                    <span className="material-symbols-outlined text-xl text-primary">chat</span>
-                    Chat with Washer
-                  </button>
-                </div>
-              </div>
-
-              /* 5. IN PROGRESS (WORKING) */
-            ) : activeTrackingOrder.status === 'In Progress' || (activeTrackingOrder.status as any) === 'Working' ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in bg-black w-full overflow-hidden">
-                <div className="relative w-64 h-64 mb-12 flex items-center justify-center">
-                  <div className="absolute inset-0 bg-primary/10 rounded-full animate-ping opacity-25"></div>
-
-                  {/* Logo Container with Wash Effect */}
-                  <div className="relative w-48 h-48 rounded-full bg-black border-4 border-primary flex items-center justify-center overflow-hidden shadow-blue-lg z-10">
-                    <img
-                      src="/logo.png"
-                      alt="Washing"
-                      className="w-full h-full object-contain p-4 animate-pulse"
-                    />
-
-                    {/* Soap Bubbles Overlay */}
-                    <div className="absolute inset-0 pointer-events-none">
-                      <div className="absolute bottom-0 left-10 w-8 h-8 bg-white/30 rounded-full animate-float" style={{ animationDuration: '3s' }}></div>
-                      <div className="absolute bottom-0 right-10 w-6 h-6 bg-white/20 rounded-full animate-float" style={{ animationDuration: '4s', animationDelay: '1s' }}></div>
-                      <div className="absolute bottom-10 left-1/2 w-4 h-4 bg-white/40 rounded-full animate-float" style={{ animationDuration: '2.5s', animationDelay: '0.5s' }}></div>
-                      <div className="absolute w-full h-1/2 bottom-0 bg-gradient-to-t from-[#3b82f6]/30 to-transparent animate-pulse"></div>
-                    </div>
-                  </div>
-
-                  {/* Scrubbing Animation */}
-                  <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full animate-spin blur-xl" style={{ animationDuration: '3s' }}></div>
-                  <div className="absolute bottom-0 left-0 w-20 h-20 bg-primary/10 rounded-full animate-spin blur-xl" style={{ animationDuration: '4s', animationDirection: 'reverse' }}></div>
-                </div>
-
-                <h2 className="text-4xl font-black mb-4 text-white tracking-tight">Washing your Car!</h2>
-                <div className="flex flex-col items-center gap-4">
-                  <div className="flex items-center gap-3 bg-primary/10 px-6 py-3 rounded-full border border-primary/20 shadow-blue">
-                    <span className="w-2 h-2 bg-primary rounded-full animate-pulse"></span>
-                    <p className="text-primary font-bold tracking-widest text-sm uppercase">
-                      In Progress • {(() => {
-                        const parseDur = (d: any) => {
-                          if (!d) return 0;
-                          const str = String(d);
-                          const h = str.match(/(\d+)h/);
-                          const m = str.match(/(\d+)m/);
-                          return (h ? parseInt(h[1]) * 60 : 0) + (m ? parseInt(m[1]) : 0) || parseInt(str) || 0;
-                        };
-
-                        let totalMinutes = 0;
-                        if (activeTrackingOrder.vehicleConfigs) {
-                          activeTrackingOrder.vehicleConfigs.forEach(conf => {
-                            const pkg = packages.find(p => p.id === conf.packageId);
-                            if (pkg) totalMinutes += parseDur(pkg.duration);
-                            conf.addonIds?.forEach(aid => {
-                              const addon = addons.find(a => a.id === aid);
-                              if (addon) totalMinutes += parseDur(addon.duration);
-                            });
-                          });
-                        }
-                        return totalMinutes || 45;
-                      })()} MIN
-                    </p>
-                  </div>
-
-                  {/* Detailed breakdown link or info */}
-                  <div className="bg-white/5 border border-white/10 p-4 rounded-2xl w-full max-w-[300px]">
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-2">Service Details</p>
-                    <div className="space-y-1">
-                      {activeTrackingOrder.vehicleConfigs?.map((conf, idx) => (
-                        <div key={idx} className="flex justify-between text-xs">
-                          <span className="text-slate-300 truncate mr-2">{conf.vehicleModel}</span>
-                          <span className="text-primary font-bold">{packages.find(p => p.id === conf.packageId)?.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              /* 6. COMPLETED (Review) */
-            ) : activeTrackingOrder.status === 'Completed' ? (
-              <div className="flex-1 flex flex-col p-6 animate-fade-in bg-black overflow-y-auto">
-                <div className="text-center mb-8">
-                  <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_50px_rgba(0,212,255,0.2)]">
-                    <span className="material-symbols-outlined text-6xl text-primary font-bold animate-bounce">check_circle</span>
-                  </div>
-                  <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tighter">Wash Completed!</h2>
-                  <p className="text-primary font-bold text-lg mb-4">Your car is ready!</p>
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-8">
-                    <p className="text-slate-300 text-sm leading-relaxed">
-                      Please go check your vehicle. We hope you love the results! If you have any feedback, please let us know below.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex-1 flex flex-col space-y-6">
-                  {/* Rating & Review - Consolidado */}
-                  <div className="bg-surface-dark border border-white/10 rounded-3xl p-6 shadow-2xl">
-                    <p className="text-center text-xs font-black text-slate-500 mb-6 uppercase tracking-[0.2em]">Rate your experience</p>
-                    <div className="flex justify-center gap-3 mb-8">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          onClick={() => setCurrentRating(star)}
-                          className={`transition-all active:scale-90 ${currentRating >= star ? 'scale-110' : 'opacity-30 grayscale'}`}
-                        >
-                          <span className={`material-symbols-outlined text-5xl ${currentRating >= star ? 'text-primary filled' : 'text-slate-400'}`}>star</span>
-                        </button>
-                      ))}
-                    </div>
-
-                    {currentRating > 0 && (
-                      <div className="animate-in fade-in slide-in-from-top-4 duration-500 space-y-6">
-                        {/* Tipping */}
-                        <div className="pt-4 border-t border-white/5">
-                          <div className="flex justify-between items-center mb-4">
-                            <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Add a Tip</p>
-                            <span className="text-[10px] text-green-500 font-bold bg-green-500/10 px-2 py-0.5 rounded-full">100% to washer</span>
-                          </div>
-                          <div className="grid grid-cols-4 gap-2">
-                            {['0%', '10%', '15%', '20%'].map((option) => {
-                              const percentage = parseInt(option.replace('%', ''));
-                              const baseForTip = activeTrackingOrder.price || 0;
-                              const tipAmount = Math.round(baseForTip * (percentage / 100));
-                              const isSelected = currentTip === tipAmount;
-                              return (
-                                <button
-                                  key={option}
-                                  onClick={() => setCurrentTip(tipAmount)}
-                                  className={`py-3 rounded-xl border transition-all ${isSelected ? 'bg-primary text-black border-primary font-black shadow-[0_0_20px_rgba(0,212,255,0.4)]' : 'bg-black/40 text-slate-400 border-white/10'}`}
-                                >
-                                  <div className="text-xs">{option}</div>
-                                  <div className="text-[9px] opacity-60">${tipAmount}</div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Comment */}
-                        <div className="pt-4 border-t border-white/5">
-                          <textarea
-                            placeholder="Tell us more about your experience (optional)..."
-                            value={clientReviewText}
-                            onChange={(e) => setClientReviewText(e.target.value)}
-                            className="w-full bg-black/50 border border-white/10 rounded-2xl p-4 text-sm text-white placeholder:text-slate-600 focus:border-primary/50 outline-none h-24 resize-none transition-all"
-                          ></textarea>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    disabled={currentRating === 0}
-                    onClick={async () => {
-                      try {
-                        await submitOrderRating(activeTrackingOrder.id, {
-                          clientRating: currentRating,
-                          clientReview: clientReviewText,
-                          tip: currentTip,
-                          washerId: activeTrackingOrder.washerId || ''
-                        });
-                        setTrackingOrderId(null);
-                        navigate(Screen.CLIENT_HOME);
-                        showNativeToast('Thanks for your feedback!');
-                      } catch (e) {
-                        console.error("Error submitting rating", e);
-                        showNativeToast('Error submitting rating');
-                      }
-                    }}
-                    className="w-full bg-primary text-white py-5 rounded-2xl font-black uppercase tracking-widest text-sm shadow-blue-lg active:scale-[0.98] transition-all disabled:opacity-30 disabled:grayscale"
-                  >
-                    Finish & Close
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 bg-black">
-                <LoadingSpinner />
-              </div>
-            )}
-          </div>
-          {activeTrackingOrder.washerId && (
-            <OrderChat
-              orderId={activeTrackingOrder.id}
-              currentUserId={user.id}
-              currentUserName={user.name}
-              otherUserId={activeTrackingOrder.washerId}
-              otherUserName={activeTrackingOrder.washerName || 'Washer'}
-              messages={messages}
-              sendMessage={sendMessage}
-              isOpen={showOrderChat}
-              onClose={() => setShowOrderChat(false)}
-            />
-          )}
-        </div>
+        <TrackingUI
+          activeTrackingOrder={activeTrackingOrder}
+          user={user}
+          setTrackingOrderId={setTrackingOrderId}
+          setShowOrderChat={setShowOrderChat}
+          showOrderChat={showOrderChat}
+          messages={messages}
+          sendMessage={sendMessage}
+          updateOrder={updateOrder}
+          showNativeToast={showNativeToast}
+          submitOrderRating={submitOrderRating}
+          navigate={navigate as any}
+          packages={packages}
+          addons={addons}
+        />
       )}
-
-
-
-
-      {/* Add Address Modal */}
     </>
   );
 
@@ -1713,7 +1330,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
 
     return (
       <div className="flex flex-col h-full bg-background-dark text-white">
-        <GlobalModals />
+        {renderGlobalModals()}
         <div className="flex-1 overflow-y-auto p-4 pb-24">
           {/* Header */}
           <div className="flex justify-between items-center mb-6">
@@ -1831,7 +1448,6 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
                             // Also remove from optimistic list if it exists there
                             setOptimisticOrders(prev => prev.filter(o => o.id !== order.id));
 
-                            // @ts-ignore - cancelOrder updated to accept fee flag
                             await cancelOrder(order.id, isAssigned);
                             showToast('Order cancelled.', 'success');
                           } catch (e) {
@@ -1860,7 +1476,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
 
 
         <BottomNav />
-        <GlobalModals />
+        {renderGlobalModals()}
       </div>
     );
   }
@@ -1915,7 +1531,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
         </div>
 
         <BottomNav />
-        <GlobalModals />
+        {renderGlobalModals()}
       </div>
     );
   }
@@ -2010,7 +1626,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
             }}
           />
 
-          <GlobalModals />
+          {renderGlobalModals()}
         </div>
       </div>
     );
@@ -2088,7 +1704,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
         {/* Bottom Navigation */}
         <BottomNav />
 
-        <GlobalModals />
+        {renderGlobalModals()}
 
 
 
@@ -2277,7 +1893,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
           )
         }
 
-        <GlobalModals />
+        {renderGlobalModals()}
       </div >
     );
   }
@@ -2386,7 +2002,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
       setCustomTip('');
     };
 
-    const handleCustomTipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleCustomTipChange = (e: any) => {
       if (isRated) return;
       const val = e.target.value;
       setCustomTip(val);
@@ -2746,7 +2362,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
   if ((screen as any) === Screen.CLIENT_VEHICLE) {
     return (
       <>
-        <GlobalModals />
+        {renderGlobalModals()}
         <VehicleSelectionScreen
           vehicles={vehicles}
           tempSelectedVehicles={tempSelectedVehicles}
@@ -2777,7 +2393,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
   if ((screen as any) === Screen.CLIENT_GARAGE) {
     return (
       <div className="flex flex-col h-full bg-background-dark text-white">
-        <GlobalModals />
+        {renderGlobalModals()}
         <header className="flex items-center px-4 py-4 border-b border-white/5 bg-surface-dark/50 backdrop-blur-md sticky top-0 z-30">
           <button onClick={() => navigate(Screen.CLIENT_HOME)}><span className="material-symbols-outlined text-slate-400">arrow_back_ios_new</span></button>
           <h1 className="flex-1 text-center font-bold text-lg mr-6">My Garage</h1>

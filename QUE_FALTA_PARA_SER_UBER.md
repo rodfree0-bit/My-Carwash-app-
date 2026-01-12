@@ -71,14 +71,14 @@
 
 **Lo que necesitas:**
 ```typescript
-// services/routingService.ts
-- Integrar Google Maps Directions API
-- Calcular ETA basado en tráfico
-- Actualizar en tiempo real
-- Mostrar ruta en mapa
+// services/etaService.ts
+- Integrar Google Maps Directions API (LISTO)
+- Calcular ETA basado en tráfico (LISTO)
+- Actualizar en tiempo real (LISTO)
+- Mostrar ruta en mapa (LISTO)
 ```
 
-**Estado:** ⚠️ PARCIAL (tienes ETA manual)
+**Estado:** ✅ IMPLEMENTADO
 
 ---
 
@@ -257,7 +257,7 @@
 |---------|------|--------|-----------|
 | Auto-assignment | ✅ | ❌ | 🔴 Alta |
 | Surge pricing | ✅ | ⚠️ | 🟡 Media |
-| Real-time ETA | ✅ | ⚠️ | 🔴 Alta |
+| Real-time ETA | ✅ | ✅ | ✅ OK |
 | Order acceptance | ✅ | ❌ | 🔴 Alta |
 | Tips | ✅ | ⚠️ | 🟢 Baja |
 | Live analytics | ✅ | ⚠️ | 🟡 Media |

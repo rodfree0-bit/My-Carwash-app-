@@ -254,19 +254,30 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
 
   const unreadCount = notifications.filter(n => !n.read && n.userId === currentWasherId).length;
 
+  // Auto-open chat on new message
+  useEffect(() => {
+    if (chatUnreadCount > 0 && !showChat) {
+      // Check if the last message is from the client (not self)
+      const lastMsg = activeChatMessages[activeChatMessages.length - 1];
+      if (lastMsg && lastMsg.senderId !== currentWasherId) {
+        setShowChat(true);
+        triggerNativeHaptic();
+        // Optional: Play a sound here if not handled globally
+      }
+    }
+  }, [chatUnreadCount, activeChatMessages, showChat, currentWasherId]);
+
+  // --- AUTO-START LOCATION TRACKING ---
   // --- AUTO-START LOCATION TRACKING ---
   useEffect(() => {
-    const activeOrder = orders.find(o =>
-      ['Assigned', 'En Route', 'Arrived', 'In Progress'].includes(o.status) &&
-      o.washerId === currentWasherId
-    );
-
-    if (activeOrder) {
-      console.log('🗺️ Starting location tracking for order:', activeOrder.id);
-      LocationService.startTracking(currentWasherId, activeOrder.id)
+    // Only track if we have a valid active job ID
+    if (activeJob?.id) {
+      console.log('🗺️ Starting location tracking for order:', activeJob.id);
+      LocationService.startTracking(currentWasherId, activeJob.id)
         .then(() => {
           console.log('✅ Location tracking started successfully');
-          showToast('GPS tracking started', 'info');
+          // Only toast if not already tracking (optional optimization, but simple toast is fine)
+          // showToast('GPS tracking started', 'info'); 
         })
         .catch(err => {
           console.error('❌ Failed to start tracking:', err);
@@ -280,7 +291,7 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
     return () => {
       LocationService.stopTracking();
     };
-  }, [orders, currentWasherId]);
+  }, [activeJob?.id, currentWasherId]);
 
   const handleEnRouteClick = async () => {
     if (!selectedJob) return;
