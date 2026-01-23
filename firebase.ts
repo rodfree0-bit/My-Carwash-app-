@@ -17,11 +17,13 @@ const firebaseConfig = {
 };
 
 export const app = initializeApp(firebaseConfig);
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
-});
+// export const db = initializeFirestore(app, {
+//   localCache: persistentLocalCache({
+//     tabManager: persistentMultipleTabManager()
+//   })
+// });
+// TEMPORARY: Disable persistence to clear deletions
+export const db = initializeFirestore(app, {});
 export const analytics = getAnalytics(app);
 export const messaging = getMessaging(app);
 export const auth = getAuth(app);

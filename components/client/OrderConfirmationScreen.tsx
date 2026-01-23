@@ -127,24 +127,24 @@ export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = (
     };
 
     const subtotal = calculateSubtotal();
-    const asapFee = selectedOption === 'asap' ? 10 : 0;
-    const subtotalWithASAP = subtotal + asapFee;
+    const washNowFee = selectedOption === 'asap' ? 15 : 0;
+    const subtotalWithWashNow = subtotal + washNowFee;
 
     // Calculate discount amount
     let discountAmount = 0;
     if (appliedDiscount) {
         if (appliedDiscount.type === 'percentage') {
-            discountAmount = (subtotalWithASAP * appliedDiscount.value) / 100;
+            discountAmount = (subtotalWithWashNow * appliedDiscount.value) / 100;
         } else {
             discountAmount = appliedDiscount.value;
         }
         // Check minimum order amount
-        if (appliedDiscount.minimumOrderAmount && subtotalWithASAP < appliedDiscount.minimumOrderAmount) {
+        if (appliedDiscount.minimumOrderAmount && subtotalWithWashNow < appliedDiscount.minimumOrderAmount) {
             discountAmount = 0;
         }
     }
 
-    const subtotalAfterDiscount = subtotalWithASAP - discountAmount;
+    const subtotalAfterDiscount = subtotalWithWashNow - discountAmount;
 
     // Calculate global fees (for display/washer calculations only, NOT charged to client)
     const totalFeesAmount = globalFees.reduce((acc, fee) => {
@@ -253,7 +253,7 @@ export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = (
                             <div>
                                 {selectedOption === 'asap' ? (
                                     <>
-                                        <p className="font-bold">ASAP Service</p>
+                                        <p className="font-bold">Wash Now Service</p>
                                         <p className="text-sm text-slate-400">Washer will arrive in 30-60 min</p>
                                     </>
                                 ) : (
@@ -386,8 +386,8 @@ export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = (
                         </div>
                         {selectedOption === 'asap' && (
                             <div className="flex justify-between items-center">
-                                <span className="text-slate-400">ASAP Fee</span>
-                                <span className="font-bold text-white">$10.00</span>
+                                <span className="text-slate-400">Wash Now Fee</span>
+                                <span className="font-bold text-white">$15.00</span>
                             </div>
                         )}
                         {appliedDiscount && discountAmount > 0 && (
@@ -411,7 +411,7 @@ export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = (
                     </div>
                     <div className="text-right">
                         <p className="text-xs text-slate-400">{vehicleConfigs.length} Vehicle{vehicleConfigs.length !== 1 ? 's' : ''}</p>
-                        <p className="text-xs text-primary font-bold">{selectedOption === 'asap' ? 'ASAP' : 'Scheduled'}</p>
+                        <p className="text-xs text-primary font-bold">{selectedOption === 'asap' ? 'Wash Now' : 'Scheduled'}</p>
                     </div>
                 </div>
                 <button

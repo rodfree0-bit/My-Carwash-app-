@@ -231,7 +231,7 @@ export const AdminScreens: React.FC<AdminProps> = ({
                     // 1. Calculate Scheduled Time
                     let scheduledTimestamp = 0;
 
-                    if (order.date === 'ASAP' || order.time === 'ASAP') {
+                    if (order.date === 'ASAP' || order.time === 'ASAP' || order.date === 'Wash Now' || order.time === 'Wash Now') {
                         // Fallback to CreatedAt if available
                         if (order.createdAt && typeof order.createdAt.toDate === 'function') {
                             scheduledTimestamp = order.createdAt.toDate().getTime();
@@ -275,7 +275,7 @@ export const AdminScreens: React.FC<AdminProps> = ({
                     // "no washer available" implies we waited a bit?
                     // Let's trigger if Now > ScheduledTime + 1 minute
 
-                    if (scheduledTimestamp > 0 && now > scheduledTimestamp + 60000) {
+                    if (scheduledTimestamp > 0 && now > scheduledTimestamp + 1200000) { // 20 minute buffer
                         // CANCEL
                         updateOrder(order.id, {
                             status: 'Cancelled',

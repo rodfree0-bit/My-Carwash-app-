@@ -21,11 +21,11 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'washer';
     }
 
-    // Users collection - FULLY RESTORED
+    // Users collection
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
     }
 
@@ -101,7 +101,8 @@ service cloud.firestore {
     // Discounts
     match /discounts/{discountId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow create: if isAuthenticated(); // Allow clients to create their own rewards
+      allow update, delete: if isAdmin();
     }
 
     // Bonuses

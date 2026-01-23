@@ -438,7 +438,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
 
         // 1. Show Toast if chat is not already open
         if (!showOrderChat) {
-          showNativeToast(`New message: ${lastMsg.content.substring(0, 30)}${lastMsg.content.length > 30 ? '...' : ''}`, 'info');
+          showNativeToast(`New message: ${lastMsg.content.substring(0, 30)}${lastMsg.content.length > 30 ? '...' : ''}`);
 
           // 2. Auto-open chat
           setShowOrderChat(true);
@@ -1078,40 +1078,65 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
   }, [activeTrackingOrder]);
 
   const handleProfileImageChange = async () => {
+    // 1. Try Capacitor Camera first (Mobile)
     try {
       const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
       const image = await Camera.getPhoto({
         quality: 60,
         allowEditing: false,
         resultType: CameraResultType.DataUrl,
-        source: CameraSource.Prompt, // Prompt: Camera or Gallery
+        source: CameraSource.Prompt,
         width: 800
       });
 
       if (image.dataUrl) {
-        showToast('Updating profile photo...', 'info');
-
-        // Upload to Firebase Storage
-        const storageRef = ref(storage, `avatars/${user.id}/profile.jpg`);
-        await uploadString(storageRef, image.dataUrl, 'data_url');
-
-        // Get download URL
-        const downloadURL = await getDownloadURL(storageRef);
-
-        // Update local state
-        setProfileImage(downloadURL);
-        setProfileData({ ...profileData, photo: downloadURL });
-
-        // Save to Firestore permanently
-        await updateProfile({ avatar: downloadURL });
-
-        showToast('Profile photo updated successfully!', 'success');
+        processUploadedPhoto(image.dataUrl);
+        return;
       }
     } catch (error: any) {
-      console.error('Error updating profile photo:', error);
-      if (error.message !== 'User cancelled photos app') {
-        showToast('Failed to update photo', 'error');
-      }
+      console.log('Capacitor camera not available or cancelled, trying file input:', error.message);
+    }
+
+    // 2. Fallback to hidden file input (Web)
+    if (profileInputRef.current) {
+      profileInputRef.current.click();
+    }
+  };
+
+  const processUploadedPhoto = async (dataUrl: string) => {
+    try {
+      showToast('Updating profile photo...', 'info');
+
+      // Upload to Firebase Storage
+      const storageRef = ref(storage, `avatars/${user.id}/profile.jpg`);
+      await uploadString(storageRef, dataUrl, 'data_url');
+
+      // Get download URL
+      const downloadURL = await getDownloadURL(storageRef);
+
+      // Update local state
+      setProfileImage(downloadURL);
+      setProfileData({ ...profileData, photo: downloadURL });
+
+      // Save to Firestore permanently
+      await updateProfile({ avatar: downloadURL });
+
+      showToast('Profile photo updated successfully!', 'success');
+    } catch (error) {
+      console.error('Error processing photo:', error);
+      showToast('Failed to upload photo', 'error');
+    }
+  };
+
+  const handleFilePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          processUploadedPhoto(event.target.result as string);
+        }
+      };
+      reader.readAsDataURL(e.target.files[0]);
     }
   };
 
@@ -1719,9 +1744,16 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
                   <div className="flex flex-col items-center mb-4">
                     <div className="relative">
                       <div className="w-24 h-24 rounded-full bg-cover bg-center border-4 border-primary" style={{ backgroundImage: `url("${profileData.photo}")` }}></div>
-                      <button onClick={handleProfileImageChange} className="absolute bottom-0 right-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center hover:bg-primary-dark">
+                      <button onClick={handleProfileImageChange} className="absolute bottom-0 right-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center hover:bg-primary-dark shadow-lg border-2 border-surface-dark">
                         <span className="material-symbols-outlined text-sm">photo_camera</span>
                       </button>
+                      <input
+                        type="file"
+                        ref={profileInputRef}
+                        onChange={handleFilePhotoChange}
+                        accept="image/*"
+                        className="hidden"
+                      />
                     </div>
                     <p className="text-xs text-slate-400 mt-2">{i18n.t('click_camera')}</p>
                   </div>
@@ -1767,8 +1799,8 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
                             <p className="text-sm text-slate-400">{addr.address}</p>
                           </div>
                         </div>
-                        <button onClick={() => setAddresses(addresses.filter(a => a.id !== addr.id))} className="text-red-400 hover:text-red-300">
-                          <span className="material-symbols-outlined">delete</span>
+                        <button onClick={() => handleDeleteAddress(addr.id)} className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition-colors">
+                          <span className="material-symbols-outlined text-lg">delete</span>
                         </button>
                       </div>
                     </div>
@@ -2609,10 +2641,10 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
         return;
       }
 
-      const finalDate = (selectedOption === 'asap' ? 'ASAP' : selectedDate) || 'Date Not Selected';
-      const finalTime = (selectedOption === 'asap' ? 'ASAP' : selectedTime) || 'Time Not Selected';
+      const finalDate = (selectedOption === 'asap' ? 'Wash Now' : selectedDate) || 'Date Not Selected';
+      const finalTime = (selectedOption === 'asap' ? 'Wash Now' : selectedTime) || 'Time Not Selected';
 
-      let totalPrice = 0;
+      let totalPrice = selectedOption === 'asap' ? 15 : 0; // Start with Wash Now fee if applicable
       let summaryPackageName = '';
 
       if (vehicleConfigs && vehicleConfigs.length > 0) {

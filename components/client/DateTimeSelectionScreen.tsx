@@ -27,7 +27,7 @@ export const DateTimeSelectionScreen: React.FC<DateTimeSelectionScreenProps> = (
     showToast
 }) => {
     // Feature flag to hide/show Wash Now option
-    const SHOW_WASH_NOW = false;
+    const SHOW_WASH_NOW = true;
 
     // Generate next 14 days starting from today
     const generateDays = () => {
@@ -209,7 +209,7 @@ export const DateTimeSelectionScreen: React.FC<DateTimeSelectionScreenProps> = (
                         </div>
                         <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center text-sm">
                             <span className="text-slate-400">Wash Now Fee</span>
-                            <span className="font-bold text-amber-400">+$10.00</span>
+                            <span className="font-bold text-amber-400">+$15.00</span>
                         </div>
                     </div>
                 )}

@@ -130,38 +130,38 @@ export const useFirestoreData = (user?: any, role?: string) => {
 
         let q;
         if (role === 'washer') {
-            q = query(collection(db, 'orders'), where('washerId', '==', user.uid), limit(50));
+            q = query(collection(db, 'orders'), where('washerId', '==', user.uid), orderBy('createdAt', 'desc'), limit(50));
         } else if (role === 'client') {
-            q = query(collection(db, 'orders'), where('clientId', '==', user.uid), limit(30));
+            q = query(collection(db, 'orders'), where('clientId', '==', user.uid), orderBy('createdAt', 'desc'), limit(30));
         } else if (role === 'admin') {
             // Admins: Only load last 3 months to avoid thousands of orders
-            q = query(collection(db, 'orders'), where('date', '>=', last3Months), limit(150));
+            q = query(collection(db, 'orders'), where('date', '>=', last3Months), orderBy('createdAt', 'desc'), limit(150));
         } else {
+            // No role yet, or Guest. Skip querying restricted collections.
+            setOrders([]);
+            setLoading(false);
             return;
         }
 
         const unsub = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-
-            if (role === 'washer') {
-                // Secondary listener for Pending orders (handled separately to avoid query limitations)
-                setOrders(prev => {
-                    const assigned = data;
-                    const pending = prev.filter(o => o.status === 'Pending' && o.washerId !== user.uid);
-                    const combined = [...assigned, ...pending];
-                    const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-                    return unique.sort((a, b) => b.date.localeCompare(a.date));
-                });
-            } else {
-                // Sort by date desc in client side to avoid index requirement
-                const sortedData = [...data].sort((a, b) => b.date.localeCompare(a.date));
-                setOrders(sortedData);
-            }
+            setOrders(data);
             setLoading(false);
         }, (error) => {
             console.error('❌ Error loading orders from Firestore:', error);
             if (error.code === 'failed-precondition') {
                 console.warn('⚠️ Firestore Index missing. Falling back to non-ordered query. Link to fix:', error.message);
+                // Fallback: If index missing, try without orderBy
+                const fallbackQ = role === 'washer'
+                    ? query(collection(db, 'orders'), where('washerId', '==', user.uid), limit(50))
+                    : role === 'client'
+                        ? query(collection(db, 'orders'), where('clientId', '==', user.uid), limit(30))
+                        : query(collection(db, 'orders'), where('date', '>=', last3Months), limit(150));
+
+                onSnapshot(fallbackQ, (snapshot) => {
+                    const fallbackData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+                    setOrders([...fallbackData].sort((a, b) => (b.createdAt || b.date).localeCompare(a.createdAt || a.date)));
+                });
             }
             setLoading(false);
         });

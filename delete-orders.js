@@ -1,56 +1,58 @@
-// Script to delete all orders from Firestore
 const admin = require('firebase-admin');
-const serviceAccount = require('./serviceAccountKey.json');
 
-admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-});
+// Inicializar la app (asume que ya hay credenciales o está en entorno seguro)
+// Si se ejecuta localmente con `firebase functions:shell`, esto funciona.
+// Si es standalone, necesitaríamos credenciales, pero usaremos el shell por simplicidad.
+if (admin.apps.length === 0) {
+    admin.initializeApp();
+}
 
 const db = admin.firestore();
 
 async function deleteAllOrders() {
-    console.log('🗑️  Starting to delete all orders...');
+    console.log("⚠️ INICIANDO BORRADO TOTAL DE ÓRDENES...");
 
     const ordersRef = db.collection('orders');
     const snapshot = await ordersRef.get();
 
     if (snapshot.empty) {
-        console.log('✅ No orders found. Collection is already empty.');
+        console.log("✅ No hay órdenes para borrar.");
         return;
     }
 
-    console.log(`📊 Found ${snapshot.size} orders to delete.`);
+    console.log(`🔍 Se encontraron ${snapshot.size} órdenes para eliminar.`);
 
-    // Delete in batches of 500 (Firestore limit)
     const batchSize = 500;
-    let deletedCount = 0;
+    let batch = db.batch();
+    let count = 0;
+    let totalDeleted = 0;
 
-    while (true) {
-        const batch = db.batch();
-        const docs = await ordersRef.limit(batchSize).get();
+    for (const doc of snapshot.docs) {
+        batch.delete(doc.ref);
+        count++;
 
-        if (docs.empty) {
-            break;
-        }
-
-        docs.forEach(doc => {
-            batch.delete(doc.ref);
-        });
-
-        await batch.commit();
-        deletedCount += docs.size;
-        console.log(`🔥 Deleted ${deletedCount} orders so far...`);
-
-        if (docs.size < batchSize) {
-            break;
+        if (count >= batchSize) {
+            await batch.commit();
+            totalDeleted += count;
+            console.log(`🗑️ Eliminadas ${totalDeleted} órdenes...`);
+            batch = db.batch();
+            count = 0;
         }
     }
 
-    console.log(`✅ Successfully deleted ${deletedCount} orders!`);
-    process.exit(0);
+    if (count > 0) {
+        await batch.commit();
+        totalDeleted += count;
+    }
+
+    console.log(`✅ BORRADO COMPLETADO: Se eliminaron un total de ${totalDeleted} órdenes.`);
 }
 
-deleteAllOrders().catch(error => {
-    console.error('❌ Error deleting orders:', error);
+// Ejecutar la función
+deleteAllOrders().then(() => {
+    console.log("🏁 Proceso finalizado.");
+    process.exit(0);
+}).catch((error) => {
+    console.error("❌ Error al borrar órdenes:", error);
     process.exit(1);
 });
