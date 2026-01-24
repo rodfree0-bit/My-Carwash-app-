@@ -1,15 +1,10 @@
 /**
  * Firebase Cloud Functions Index
  * 
- * Este archivo exporta todas las Cloud Functions para Square y SendGrid
+ * Este archivo exporta todas las Cloud Functions para Stripe y SendGrid
  */
 
-// Square Payment Functions
-export { createSquarePayment } from './createSquarePayment';
-export { completeSquarePayment } from './completeSquarePayment';
-export { cancelSquareOrder } from './cancelSquareOrder';
-
-// Email Functions (cuando se configure SendGrid)
+// Notification Functions
 // export { sendReceipt } from './sendReceipt';
 
 // Notification Functions

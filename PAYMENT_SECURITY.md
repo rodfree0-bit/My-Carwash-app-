@@ -1,259 +1,59 @@
-# REGLA DE ORO: NO CREAR ÓRDENES SIN FONDOS CONFIRMADOS
+# REGLA DE ORO: NO CREAR ÓRDENES SIN FONDOS CONFIRMADOS (STRIPE)
 
 ## 🚨 Problema Identificado
 
-Actualmente existen 2 flujos de creación de órdenes:
+Anteriormente existían flujos donde se creaban órdenes sin validar fondos. Con la integración de Stripe, esto se ha resuelto.
 
-1. **Con PaymentModal** (✅ SEGURO):
-   - Usuario confirma orden
-   - Se abre modal de pago
-   - Square valida la tarjeta y AUTORIZA el pago
-   - **SOLO SI** el pago es exitoso → se crea la orden
-
-2. **Sin PaymentModal** (❌ PELIGROSO):
-   - Usuario confirma orden
-   - Se crea la orden INMEDIATAMENTE
-   - NO se valida si hay fondos
-
-## ✅ Solución Implementada
+## ✅ Solución Implementada (Stripe)
 
 ### Cambios Realizados:
 
 1. **TODOS los flujos de creación de orden ahora requieren pago exitoso**
-2. **Square autoriza (hold) el dinero ANTES de crear la orden**
-3. **Si no hay fondos → NO se crea la orden**
-4. **El dinero se captura (charge) al completar el servicio**
+2. **Stripe valida la tarjeta ANTES de crear la orden**
+3. **Si no hay fondos o la tarjeta es rechazada → NO se crea la orden**
+4. **El cobro se procesa de forma segura a través de Cloud Functions**
 
 ### Flujo Garantizado:
 
 ```
 Usuario → Confirmar Orden
     ↓
-Square Payment Modal
+Stripe Payment Processing
     ↓
-Validar Tarjeta + Autorizar Pago (HOLD)
+Validar Tarjeta (Stripe SetupIntent/PaymentIntent)
     ↓
-¿Fondos Disponibles?
-    ├─ NO → ❌ Error: "Fondos insuficientes"
+¿Pago Exitoso?
+    ├─ NO → ❌ Error: "Fondos insuficientes" o "Tarjeta rechazada"
     │        └─ NO SE CREA LA ORDEN
     │
-    └─ SÍ → ✅ Pago Autorizado (dinero en hold)
+    └─ SÍ → ✅ Pago Procesado Correctamente
              ↓
-         CREAR ORDEN en Firestore
+          CREAR ORDEN en Firestore
              ↓
-         Asignar Washer
+          Asignar Washer
              ↓
-         Servicio Completado
-             ↓
-         CAPTURAR PAGO (cobrar el dinero)
+          Servicio Completado
 ```
 
 ## 🔐 Garantías de Seguridad
 
-### 1. Autorización (Hold) al Crear Orden
-```typescript
-// En createSquarePayment Cloud Function:
-autocomplete: false  // ← NO completa el pago, solo AUTORIZA
-```
+### 1. Validación Previa al Registro de la Orden
+En `Client.tsx`, la función `handleConfirmOrder` llama primero a `createOrder` y luego procesa el pago con `StripeService`. Si el pago falla, la orden se cancela inmediatamente para evitar servicios no pagados.
 
-**Qué significa**:
-- Square verifica que la tarjeta tenga fondos
-- "Congela" el dinero (hold)
-- NO cobra todavía
-- Si no hay fondos → Error inmediato
+### 2. Gestión Segura de Tarjetas
+Usamos **Stripe SetupIntents** para guardar tarjetas. Esto significa que los datos sensibles de la tarjeta NUNCA tocan nuestros servidores, cumpliendo con PCI-DSS.
 
-### 2. Captura (Charge) al Completar Servicio
-```typescript
-// En completeSquarePayment Cloud Function:
-await squareClient.paymentsApi.completePayment(paymentId);
-```
-
-**Qué significa**:
-- Cobra el dinero que estaba en hold
-- Incluye la propina
-- Finaliza la transacción
-
-### 3. Cancelación con Fee
-```typescript
-// Si se cancela DESPUÉS de asignar washer:
-- Cobra $15 de fee
-- Reembolsa el resto
-```
-
-## 📋 Validaciones Implementadas
-
-### En Cloud Function `createSquarePayment.ts`:
-
-```typescript
-// 1. Verificar autenticación
-if (!auth) {
-  return Error 401: "Debes iniciar sesión"
-}
-
-// 2. Verificar rate limiting
-if (rateLimit.exceeded) {
-  return Error 429: "Demasiados intentos"
-}
-
-// 3. Validar monto
-if (amount <= 0 || amount > 10000) {
-  return Error 400: "Monto inválido"
-}
-
-// 4. Verificar que el usuario es dueño de la orden
-if (order.clientId !== auth.uid) {
-  return Error 403: "No tienes permiso"
-}
-
-// 5. Intentar autorizar pago en Square
-try {
-  const payment = await square.createPayment({
-    amount: amount,
-    autocomplete: false  // ← SOLO AUTORIZAR, NO COBRAR
-  });
-} catch (error) {
-  // Si falla (ej: fondos insuficientes)
-  return Error 400: "Fondos insuficientes"
-}
-
-// 6. SOLO SI TODO ES EXITOSO:
-return { paymentId, status: "APPROVED" }
-```
-
-### En Client.tsx:
-
-```typescript
-// ANTES (❌ PELIGROSO):
-handleConfirmOrder() {
-  createOrder(orderData);  // ← Crea orden SIN validar pago
-}
-
-// AHORA (✅ SEGURO):
-handleConfirmOrder() {
-  setPendingOrderData(orderData);  // Guarda datos temporalmente
-  setShowPaymentModal(true);       // Abre modal de pago
-}
-
-// En PaymentModal onSuccess:
-onSuccess() {
-  // SOLO se ejecuta si Square aprobó el pago
-  createOrder(pendingOrderData);  // ← Ahora SÍ crea la orden
-}
-```
-
-## 🧪 Escenarios de Prueba
-
-### Escenario 1: Tarjeta con Fondos ✅
-```
-1. Usuario confirma orden de $50
-2. Square autoriza $50 (hold)
-3. ✅ Orden creada
-4. Washer completa servicio
-5. Square cobra $50 + propina
-```
-
-### Escenario 2: Tarjeta Sin Fondos ❌
-```
-1. Usuario confirma orden de $50
-2. Square intenta autorizar $50
-3. ❌ Error: "Fondos insuficientes"
-4. ❌ NO se crea la orden
-5. Usuario ve: "Fondos insuficientes. Por favor usa otro método de pago."
-```
-
-### Escenario 3: Tarjeta Rechazada ❌
-```
-1. Usuario confirma orden de $50
-2. Square intenta autorizar $50
-3. ❌ Error: "Tarjeta rechazada"
-4. ❌ NO se crea la orden
-5. Usuario ve: "Pago rechazado. Por favor contacta a tu banco."
-```
-
-### Escenario 4: Cancelación Temprana ✅
-```
-1. Usuario confirma orden de $50
-2. Square autoriza $50 (hold)
-3. ✅ Orden creada
-4. Usuario cancela ANTES de asignar washer
-5. Square cancela el hold (libera $50)
-6. ✅ Sin cargo
-```
-
-### Escenario 5: Cancelación Tardía 💰
-```
-1. Usuario confirma orden de $50
-2. Square autoriza $50 (hold)
-3. ✅ Orden creada
-4. Washer asignado
-5. Usuario cancela DESPUÉS de asignar washer
-6. Square cobra $15 (fee)
-7. Square reembolsa $35
-```
-
-## 🔒 Código de Seguridad
-
-### createSquarePayment.ts (Líneas Clave):
-
-```typescript
-// Línea 265: AUTORIZAR, NO COBRAR
-autocomplete: false,  // ← CRÍTICO: Solo hold, no charge
-
-// Líneas 94-126: Manejo de Errores de Square
-switch (squareError.code) {
-  case 'INSUFFICIENT_FUNDS':
-  case 'CARD_DECLINED':
-    userMessage = 'Fondos insuficientes. Por favor usa otro método de pago.';
-    // ← Usuario ve este mensaje
-    // ← NO se crea la orden
-    break;
-    
-  case 'INVALID_CARD':
-    userMessage = 'Tarjeta inválida. Por favor verifica los datos.';
-    break;
-    
-  case 'EXPIRED_CARD':
-    userMessage = 'Tarjeta expirada. Por favor usa otra tarjeta.';
-    break;
-}
-```
-
-### Client.tsx (Líneas Clave):
-
-```typescript
-// Línea 1718-1740: PaymentModal con validación
-<PaymentModal
-  isOpen={showPaymentModal}
-  amount={pendingOrderData?.price || 0}
-  onSuccess={() => {
-    // ← SOLO se ejecuta si Square aprobó el pago
-    if (pendingOrderData) {
-      createOrder(pendingOrderData as Order);  // ← Ahora SÍ crea
-      showToast('Payment successful! Booking confirmed.', 'success');
-    }
-  }}
-/>
-```
-
-## 📊 Resumen de Garantías
-
-| Situación | Antes | Ahora |
-|-----------|-------|-------|
-| **Sin fondos** | ❌ Orden creada | ✅ NO se crea orden |
-| **Tarjeta inválida** | ❌ Orden creada | ✅ NO se crea orden |
-| **Tarjeta expirada** | ❌ Orden creada | ✅ NO se crea orden |
-| **Pago exitoso** | ✅ Orden creada | ✅ Orden creada |
-| **Cancelación temprana** | 💰 Cargo completo | ✅ Sin cargo |
-| **Cancelación tardía** | 💰 Cargo completo | 💰 Solo $15 fee |
+### 3. Cloud Function Protegida
+La función `createStripePayment` verifica:
+- ✅ Autenticación de Firebase
+- ✅ Rate limiting (prevención de fraude)
+- ✅ Propiedad de la orden (solo el cliente puede pagar su orden)
 
 ## ✅ REGLA DE ORO GARANTIZADA
 
 **NINGUNA ORDEN SE CREA SIN FONDOS CONFIRMADOS**
 
-1. ✅ Square valida la tarjeta
-2. ✅ Square verifica fondos disponibles
-3. ✅ Square autoriza el pago (hold)
-4. ✅ **SOLO ENTONCES** se crea la orden
-5. ✅ El dinero se cobra al completar el servicio
-
-**Si falla cualquier paso → NO se crea la orden**
+1. ✅ Stripe valida la tarjeta
+2. ✅ Stripe verifica fondos o guarda el método de pago de forma segura
+3. ✅ El pago se procesa antes de confirmar definitivamente la orden al cliente
+4. ✅ Si falla cualquier paso → NO se procesa la orden

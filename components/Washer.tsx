@@ -31,7 +31,7 @@ interface WasherProps {
   addNotification: (userId: string, title: string, message: string, type: NotificationType, linkTo?: Screen, relatedId?: string) => void;
   logout: () => void;
   messages: Message[];
-  sendMessage: (senderId: string, receiverId: string, orderId: string, content: string, type?: 'text' | 'image') => void;
+  sendMessage: (senderId: string, receiverId: string, orderId: string, content: string, type?: 'text' | 'image') => Promise<void>;
   packages: ServicePackage[];
   addons: ServiceAddon[];
   openSupport?: () => void;
@@ -267,31 +267,9 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
     }
   }, [chatUnreadCount, activeChatMessages, showChat, currentWasherId]);
 
-  // --- AUTO-START LOCATION TRACKING ---
-  // --- AUTO-START LOCATION TRACKING ---
-  useEffect(() => {
-    // Only track if we have a valid active job ID
-    if (activeJob?.id) {
-      console.log('🗺️ Starting location tracking for order:', activeJob.id);
-      LocationService.startTracking(currentWasherId, activeJob.id)
-        .then(() => {
-          console.log('✅ Location tracking started successfully');
-          // Only toast if not already tracking (optional optimization, but simple toast is fine)
-          // showToast('GPS tracking started', 'info'); 
-        })
-        .catch(err => {
-          console.error('❌ Failed to start tracking:', err);
-          showToast('Please enable location permissions', 'warning');
-        });
-    } else {
-      console.log('🛑 Stopping location tracking - no active orders');
-      LocationService.stopTracking();
-    }
-
-    return () => {
-      LocationService.stopTracking();
-    };
-  }, [activeJob?.id, currentWasherId]);
+  // --- LOCATION TRACKING REMOVED ---
+  // Tracking is now handled globally by LocationTracker component in App.tsx
+  // This avoids redundant WatchPosition instances and permission conflicts.
 
   const handleEnRouteClick = async () => {
     if (!selectedJob) return;
@@ -325,13 +303,8 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
     });
     console.log('✅ Order status updated to En Route');
 
-    // Start real-time location tracking
-    try {
-      await LocationService.startTracking(currentWasherId, selectedJob.id);
-      console.log('📍 Location tracking started for order:', selectedJob.id);
-    } catch (error) {
-      console.error('❌ Failed to start location tracking:', error);
-    }
+    // Start real-time location tracking is handled automatically by LocationTracker 
+    // when the status changes to 'En Route'. Manual call removed to avoid redundancy.
 
     triggerNativeHaptic();
     // navigate(Screen.WASHER_JOBS); // Removed navigation to stay on details
@@ -347,14 +320,7 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
       });
       console.log('✅ Order status updated to En Route');
 
-      // Start real-time location tracking
-      try {
-        await LocationService.startTracking(currentWasherId, selectedJob.id);
-        console.log('📍 Location tracking started for order:', selectedJob.id);
-      } catch (error) {
-        console.error('❌ Failed to start location tracking:', error);
-        // Location permission denied - user will need to enable manually
-      }
+      // Start real-time location tracking is handled automatically by LocationTracker
 
       setShowETAModal(false);
       setEtaMinutes('15');
@@ -1413,6 +1379,7 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
             showBeforePhotosModal && (
               <PhotoCapture
                 mode="before"
+                orderId={selectedJob.id}
                 onPhotosComplete={(photos) => {
                   if (selectedJob) {
                     updateOrder(selectedJob.id, {
@@ -1434,6 +1401,7 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
             showCamera && cameraMode === 'after' && (
               <PhotoCapture
                 mode="after"
+                orderId={selectedJob.id}
                 onPhotosComplete={(photos) => {
                   if (selectedJob) {
                     // Calculate financials before saving
@@ -1588,9 +1556,12 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
                   <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-1">Client</p>
                   <h2 className="text-xl font-bold text-white">{selectedJob.clientName}</h2>
                 </div>
-                <a href={`tel:${selectedJob.clientPhone}`} className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 hover:bg-green-500 hover:text-white transition-all">
-                  <span className="material-symbols-outlined">call</span>
-                </a>
+                <button
+                  onClick={() => setShowChat(true)}
+                  className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 hover:bg-blue-500 hover:text-white transition-all"
+                >
+                  <span className="material-symbols-outlined">chat</span>
+                </button>
               </div>
 
               <div className="bg-black/20 p-3 rounded-xl border border-white/5">
@@ -1833,6 +1804,7 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
         {showBeforePhotosModal && (
           <PhotoCapture
             mode="before"
+            orderId={selectedJob.id}
             onPhotosComplete={(photos) => {
               updateOrder(selectedJob.id, {
                 status: 'In Progress',
@@ -1849,6 +1821,7 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
         {showCamera && cameraMode === 'after' && (
           <PhotoCapture
             mode="after"
+            orderId={selectedJob.id}
             onPhotosComplete={(photos) => {
               updateOrder(selectedJob.id, {
                 status: 'Completed',
@@ -1856,11 +1829,6 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
                 photos: { ...selectedJob.photos, after: photos },
                 waitingForClient: true
               });
-
-              // Award 1 loyalty point (1 wash = 1 point)
-              if (selectedJob.clientId) {
-                addLoyaltyPoints(selectedJob.clientId);
-              }
 
               LocationService.stopTracking();
               setShowCamera(false);
@@ -2099,33 +2067,73 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
             {weekJobs.length === 0 ? (
               <p className="text-slate-500 text-center py-4 italic">No jobs completed this week yet.</p>
             ) : (
-              weekJobs.sort((a, b) => getJobDate(b).getTime() - getJobDate(a).getTime()).map((job: Order) => (
-                <div key={job.id} className="bg-surface-dark rounded-xl p-4 border border-white/5">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-bold">{job.clientName}</p>
-                      <p className="text-sm text-slate-400">{job.service}</p>
+              weekJobs.sort((a, b) => getJobDate(b).getTime() - getJobDate(a).getTime()).map((job: Order) => {
+                // Calculate detailed breakdown for this job
+                const totalFeePercent = globalFees.reduce((acc, fee) => acc + (fee.percentage || 0), 0);
+                const basePrice = job.price || 0;
+                const tip = job.tip || 0;
+                const asapFee = (job.time === 'ASAP' || job.date === 'ASAP') ? 10 : 0;
+                const fees = (basePrice * totalFeePercent) / 100;
+                const netEarnings = basePrice - fees + tip;
+
+                return (
+                  <div key={job.id} className="bg-surface-dark rounded-xl p-4 border border-white/5">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <p className="font-bold">{job.vehicle || 'Vehicle'}</p>
+                        <p className="text-sm text-slate-400">{job.service}</p>
+                        {job.addons && job.addons.length > 0 && (
+                          <p className="text-xs text-slate-500 mt-1">+ {job.addons.join(', ')}</p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-green-400">${netEarnings.toFixed(2)}</p>
+                        <p className="text-xs text-slate-500">Net Earnings</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-green-400">${job.price.toFixed(2)}</p>
-                      {job.tip && job.tip > 0 && (
-                        <p className="text-xs text-amber-400">+${job.tip.toFixed(2)} tip</p>
+
+                    {/* Financial Breakdown */}
+                    <div className="bg-black/30 rounded-lg p-3 space-y-1 text-xs mb-2">
+                      <div className="flex justify-between text-slate-300">
+                        <span>Base Price</span>
+                        <span>${basePrice.toFixed(2)}</span>
+                      </div>
+                      {asapFee > 0 && (
+                        <div className="flex justify-between text-amber-400">
+                          <span>ASAP Fee</span>
+                          <span>+${asapFee.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {tip > 0 && (
+                        <div className="flex justify-between text-amber-400">
+                          <span>Tip (100% yours)</span>
+                          <span>+${tip.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-red-400">
+                        <span>Fees ({totalFeePercent}%)</span>
+                        <span>-${fees.toFixed(2)}</span>
+                      </div>
+                      <div className="border-t border-white/10 pt-1 mt-1 flex justify-between text-white font-bold">
+                        <span>Your Net</span>
+                        <span className="text-green-400">${netEarnings.toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-slate-400">
+                      <span>
+                        {getJobDate(job).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} • {getJobDate(job).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {job.rating && (
+                        <div className="flex items-center gap-1">
+                          <span className="material-symbols-outlined text-xs text-yellow-400 filled">star</span>
+                          <span>{job.rating}.0</span>
+                        </div>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center justify-between text-xs text-slate-400">
-                    <span>
-                      {getJobDate(job).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} • {getJobDate(job).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    {job.rating && (
-                      <div className="flex items-center gap-1">
-                        <span className="material-symbols-outlined text-xs text-yellow-400 filled">star</span>
-                        <span>{job.rating}.0</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -2290,6 +2298,8 @@ export const WasherScreens: React.FC<WasherProps> = (props) => {
       } else {
         setTicketId(null);
       }
+    }, (error) => {
+      console.error('❌ Error listening to support tickets (Washer):', error);
     });
     return () => unsubscribe();
   }, [currentWasherId]);
@@ -2311,6 +2321,8 @@ export const WasherScreens: React.FC<WasherProps> = (props) => {
         const bt = (b.timestamp as any)?.toMillis?.() || b.timestamp || 0;
         return at - bt;
       }));
+    }, (error) => {
+      console.error('❌ Error listening to support messages (Washer):', error);
     });
 
     return () => unsubscribe();

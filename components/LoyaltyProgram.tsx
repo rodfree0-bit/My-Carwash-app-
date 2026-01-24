@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { i18n } from '../services/i18n';
-import { doc, updateDoc, onSnapshot, getDoc, collection, query, where, addDoc, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, onSnapshot, getDoc, collection, query, where, addDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export interface LoyaltyTier {
@@ -76,6 +76,10 @@ export const LoyaltyProgram: React.FC<LoyaltyProgramProps> = ({ userId }) => {
                 setNextTier(currentIndex < LOYALTY_TIERS.length - 1 ? LOYALTY_TIERS[currentIndex + 1] : null);
 
                 setLoading(false);
+            },
+            (error) => {
+                console.error('❌ Error listening to user profile in LoyaltyProgram:', error);
+                setLoading(false);
             }
         );
 
@@ -87,6 +91,8 @@ export const LoyaltyProgram: React.FC<LoyaltyProgramProps> = ({ userId }) => {
                 ...d.data()
             }));
             setUserCoupons(coupons);
+        }, (error) => {
+            console.error('❌ Error fetching user tokens in LoyaltyProgram:', error);
         });
 
         return () => {
@@ -116,7 +122,7 @@ export const LoyaltyProgram: React.FC<LoyaltyProgramProps> = ({ userId }) => {
                 applicableTo: 'total',
                 clientId: userId,
                 createdBy: 'system',
-                createdDate: new Date().toISOString()
+                createdDate: serverTimestamp() as any
             });
 
             // 2. Update user document
@@ -126,9 +132,12 @@ export const LoyaltyProgram: React.FC<LoyaltyProgramProps> = ({ userId }) => {
             });
 
             alert(`Congratulations! Your code is: ${uniqueCode}\n\nCopy it to use it on your next order.`);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error claiming reward:', error);
-            alert('Error claiming reward. Please try again.');
+            const errorMsg = error.message?.includes('permission-denied')
+                ? 'Authorization error. Please contact support.'
+                : `Error: ${error.message || 'Please try again.'}`;
+            alert(`Error claiming reward: ${errorMsg}`);
         } finally {
             setClaiming(false);
         }

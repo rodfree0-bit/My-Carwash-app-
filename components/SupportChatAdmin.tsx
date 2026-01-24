@@ -59,6 +59,8 @@ export const SupportChatAdmin: React.FC<SupportChatAdminProps> = ({ currentUser,
             });
             // Sort by lastMessageAt desc
             setTickets(ticketsData.sort((a, b) => (b.lastMessageAt?.toMillis?.() || 0) - (a.lastMessageAt?.toMillis?.() || 0)));
+        }, (error) => {
+            console.error('❌ Error listening to support tickets (Admin):', error);
         });
 
         return () => unsubscribe();
@@ -102,6 +104,8 @@ export const SupportChatAdmin: React.FC<SupportChatAdminProps> = ({ currentUser,
                     status: 'open' // Explicitly keep open when messages are being read (unless closed)
                 });
             }
+        }, (error) => {
+            console.error('❌ Error listening to messages in SupportChatAdmin:', error);
         });
 
         return () => unsubscribe();

@@ -41,7 +41,8 @@ export const TrackingMap: React.FC<TrackingMapProps> = ({
     washerLocation,
     clientLocation,
     status,
-    washerName = 'Washer'
+    washerName = 'Washer',
+    eta
 }) => {
     const mapRef = useRef<HTMLDivElement>(null);
     const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -175,10 +176,22 @@ export const TrackingMap: React.FC<TrackingMapProps> = ({
     return (
         <div className="absolute inset-0 z-0">
             <div ref={mapRef} className="w-full h-full" />
+
+            {/* Map Overlay Info */}
+            <div className="absolute top-20 right-4 flex flex-col items-end gap-3 z-10">
+                {/* ETA Badge */}
+                {eta && (
+                    <div className="bg-primary/90 backdrop-blur-xl px-5 py-3 rounded-3xl border border-white/20 shadow-blue-lg animate-fade-in flex flex-col items-center min-w-[100px]">
+                        <span className="text-[10px] font-black text-black/60 uppercase tracking-widest mb-0.5">Arriving In</span>
+                        <span className="text-2xl font-black text-white">{typeof eta === 'number' ? `${eta} min` : eta}</span>
+                    </div>
+                )}
+            </div>
+
             <div className="absolute bottom-32 right-4 flex flex-col items-end gap-2 z-10">
                 <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10 shadow-lg">
                     <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                    <span className="text-[10px] font-black text-green-400 uppercase tracking-widest">LIVE GPS v2.7</span>
+                    <span className="text-[10px] font-black text-green-400 uppercase tracking-widest">LIVE GPS v3.0</span>
                 </div>
                 {(!washerLocation || (washerLocation.lat === 0 && washerLocation.lng === 0)) && (
                     <div className="bg-orange-500/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-orange-400/50 shadow-lg animate-bounce">

@@ -110,6 +110,8 @@ export const SupportChat: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             // Sort by timestamp asc
             setMessages(msgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)));
             scrollToBottom();
+        }, (error) => {
+            console.error('❌ Error listening to messages in SupportChat:', error);
         });
 
         return () => unsubscribe();

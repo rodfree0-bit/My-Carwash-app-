@@ -26,6 +26,7 @@ import { AppEarningsScreen } from './admin/AppEarningsScreen';
 import { TaxReportsScreen } from './admin/TaxReportsScreen';
 import { AdminOrderPhotos } from './admin/AdminOrderPhotos';
 import { FleetQuotesScreen } from './admin/FleetQuotesScreen';
+import { StripeService } from '../services/StripeService';
 
 interface AdminProps {
     screen: Screen;
@@ -423,10 +424,12 @@ export const AdminScreens: React.FC<AdminProps> = ({
         if (liveSearch) {
             const q = liveSearch.toLowerCase();
             result = result.filter(o =>
-                o.clientName.toLowerCase().includes(q) ||
-                o.id.toLowerCase().includes(q) ||
-                (o.clientId && o.clientId.toLowerCase().includes(q)) ||
-                (o.vehicle && o.vehicle.toLowerCase().includes(q))
+                (o.clientName?.toLowerCase() || '').includes(q) ||
+                (o.id?.toLowerCase() || '').includes(q) ||
+                (o.displayId?.toLowerCase() || '').includes(q) ||
+                (o.clientPhone?.toLowerCase() || '').includes(q) ||
+                (o.address?.toLowerCase() || '').includes(q) ||
+                (o.vehicle?.toLowerCase() || '').includes(q)
             );
         }
         return result;
@@ -441,7 +444,11 @@ export const AdminScreens: React.FC<AdminProps> = ({
             if (historyDateFilter !== 'All Dates' && o.date !== historyDateFilter) return false;
             if (historySearch) {
                 const q = historySearch.toLowerCase();
-                return o.clientName.toLowerCase().includes(q) || o.id.toLowerCase().includes(q);
+                return (o.clientName?.toLowerCase() || '').includes(q) ||
+                    (o.id?.toLowerCase() || '').includes(q) ||
+                    (o.displayId?.toLowerCase() || '').includes(q) ||
+                    (o.clientPhone?.toLowerCase() || '').includes(q) ||
+                    (o.address?.toLowerCase() || '').includes(q);
             }
             return true;
         });
@@ -1485,10 +1492,62 @@ export const AdminScreens: React.FC<AdminProps> = ({
                                                 setEditingServicesOrder(viewingOrderDetails);
                                                 setViewingOrderDetails(null);
                                             }}
-                                            className="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/20 font-bold transition-colors"
+                                            disabled={viewingOrderDetails.status === 'Completed' || viewingOrderDetails.status === 'Cancelled'}
+                                            className={`flex-1 py-3 rounded-xl font-bold transition-colors ${viewingOrderDetails.status === 'Completed' || viewingOrderDetails.status === 'Cancelled'
+                                                ? 'bg-white/5 text-slate-600 cursor-not-allowed'
+                                                : 'bg-white/10 hover:bg-white/20'
+                                                }`}
                                         >
                                             Modify
                                         </button>
+
+
+                                        {/* Refund Button - Available for all orders */}
+                                        <button
+                                            onClick={async () => {
+                                                const paymentId = (viewingOrderDetails as any).paymentId;
+                                                const isPaid = viewingOrderDetails.paymentStatus === 'Paid';
+
+                                                // Show appropriate confirmation message
+                                                const confirmMessage = isPaid && paymentId
+                                                    ? `Process refund of $${viewingOrderDetails.price} to the client?\n\nThis will refund the payment through Stripe and cannot be undone.`
+                                                    : `Mark this order as refunded?\n\nNote: This order was not paid through Stripe, so no automatic refund will be processed. You may need to handle the refund manually.`;
+
+                                                if (window.confirm(confirmMessage)) {
+                                                    try {
+                                                        showToast('Processing refund...', 'info');
+
+                                                        if (isPaid && paymentId) {
+                                                            // Process actual Stripe refund
+                                                            const result = await StripeService.refundPayment(
+                                                                viewingOrderDetails.id,
+                                                                paymentId,
+                                                                'Admin initiated refund'
+                                                            );
+                                                            showToast(`Refund successful! $${result.amount} refunded.`, 'success');
+                                                        } else {
+                                                            // Manual refund - just update the order status
+                                                            await updateOrder(viewingOrderDetails.id, {
+                                                                paymentStatus: 'Refunded',
+                                                                refundedAt: new Date(),
+                                                                refundReason: 'Manual admin refund (no Stripe payment)'
+                                                            } as any);
+                                                            showToast('Order marked as refunded', 'success');
+                                                        }
+
+                                                        setViewingOrderDetails(null);
+                                                    } catch (error: any) {
+                                                        console.error('Refund error:', error);
+                                                        showToast(error.message || 'Failed to process refund', 'error');
+                                                    }
+                                                }
+                                            }}
+                                            className="flex-1 py-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 font-bold transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">undo</span>
+                                            Refund
+                                        </button>
+
 
                                         {viewingOrderDetails.status !== 'Completed' && viewingOrderDetails.status !== 'Cancelled' && (
                                             <button
@@ -1550,10 +1609,10 @@ export const AdminScreens: React.FC<AdminProps> = ({
         const filteredClients = clients.filter(client => {
             const searchLower = clientSearch.toLowerCase();
             return (
-                client.name.toLowerCase().includes(searchLower) ||
-                client.email.toLowerCase().includes(searchLower) ||
-                client.phone.toLowerCase().includes(searchLower) ||
-                client.id.toLowerCase().includes(searchLower)
+                (client.name?.toLowerCase() || '').includes(searchLower) ||
+                (client.email?.toLowerCase() || '').includes(searchLower) ||
+                (client.phone?.toLowerCase() || '').includes(searchLower) ||
+                (client.id?.toLowerCase() || '').includes(searchLower)
             );
         });
 

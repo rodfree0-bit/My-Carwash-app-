@@ -135,13 +135,19 @@ export const useFirestoreData = (user?: any, role?: string) => {
             q = query(collection(db, 'orders'), where('clientId', '==', user.uid), orderBy('createdAt', 'desc'), limit(30));
         } else if (role === 'admin') {
             // Admins: Only load last 3 months to avoid thousands of orders
-            q = query(collection(db, 'orders'), where('date', '>=', last3Months), orderBy('createdAt', 'desc'), limit(150));
-        } else {
-            // No role yet, or Guest. Skip querying restricted collections.
-            setOrders([]);
-            setLoading(false);
-            return;
+            q = query(collection(db, 'orders'), where('date', '>=', last3Months), orderBy('date', 'desc'), orderBy('createdAt', 'desc'), limit(150));
         }
+
+        const compareDates = (a: any, b: any) => {
+            const getVal = (v: any) => {
+                if (!v) return 0;
+                if (typeof v === 'string') return new Date(v).getTime();
+                if (v && typeof v.toMillis === 'function') return v.toMillis();
+                if (v instanceof Date) return v.getTime();
+                return 0;
+            };
+            return getVal(b) - getVal(a);
+        };
 
         const unsub = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
@@ -160,7 +166,9 @@ export const useFirestoreData = (user?: any, role?: string) => {
 
                 onSnapshot(fallbackQ, (snapshot) => {
                     const fallbackData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-                    setOrders([...fallbackData].sort((a, b) => (b.createdAt || b.date).localeCompare(a.createdAt || a.date)));
+                    setOrders([...fallbackData].sort((a, b) => compareDates(a.createdAt || a.date, b.createdAt || b.date)));
+                }, (err) => {
+                    console.error('❌ Error in fallback order listener:', err);
                 });
             }
             setLoading(false);
@@ -176,8 +184,10 @@ export const useFirestoreData = (user?: any, role?: string) => {
                     const assigned = prev.filter(o => o.washerId === user.uid);
                     const combined = [...assigned, ...pendingData];
                     const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-                    return unique.sort((a, b) => b.date.localeCompare(a.date));
+                    return unique.sort((a, b) => compareDates(a.date, b.date));
                 });
+            }, (err) => {
+                console.error('❌ Error loading pending orders (Washer):', err);
             });
         }
 
@@ -195,12 +205,17 @@ export const useFirestoreData = (user?: any, role?: string) => {
             return;
         }
 
-        const q = query(collection(db, 'users'), limit(500)); // Still semi-heavy but limited
-        const unsub = onSnapshot(q, (snapshot) => {
-            const allUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-            setTeam(allUsers.filter(u => u.role === 'admin' || u.role === 'washer'));
-            setClients(allUsers.filter(u => u.role === 'client' || !u.role));
-        });
+        const q = query(collection(db, 'users'), limit(500));
+        const unsub = onSnapshot(q,
+            (snapshot) => {
+                const allUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+                setTeam(allUsers.filter(u => u.role === 'admin' || u.role === 'washer'));
+                setClients(allUsers.filter(u => u.role === 'client' || !u.role));
+            },
+            (error) => {
+                console.error('❌ Error loading users (Admin):', error);
+            }
+        );
 
         return unsub;
     }, [user?.uid, role]);
@@ -210,15 +225,19 @@ export const useFirestoreData = (user?: any, role?: string) => {
         if (!user) return;
 
         const qMsg = query(collection(db, 'messages'), where('timestamp', '>=', sLast7Days), limit(100));
-        const unsubMsg = onSnapshot(qMsg, (snapshot) => {
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
-            // Sort by timestamp asc for chat flow safely handling Timestamp objects
-            setMessages(data.sort((a, b) => {
-                const at = (a.timestamp as any)?.toMillis?.() || a.timestamp || 0;
-                const bt = (b.timestamp as any)?.toMillis?.() || b.timestamp || 0;
-                return at - bt;
-            }));
-        });
+        const unsubMsg = onSnapshot(qMsg,
+            (snapshot) => {
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+                setMessages(data.sort((a, b) => {
+                    const at = (a.timestamp as any)?.toMillis?.() || a.timestamp || 0;
+                    const bt = (b.timestamp as any)?.toMillis?.() || b.timestamp || 0;
+                    return at - bt;
+                }));
+            },
+            (error) => {
+                console.error('❌ Error loading messages:', error);
+            }
+        );
 
         let qNotif;
         if (role === 'washer') {
@@ -237,18 +256,32 @@ export const useFirestoreData = (user?: any, role?: string) => {
             );
         }
 
-        const unsubNotif = onSnapshot(qNotif, (snapshot) => {
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
-            // Sort by timestamp desc safely handling Timestamp objects
-            setNotifications(data.sort((a, b) => {
-                const at = (a.timestamp as any)?.toMillis?.() || a.timestamp || 0;
-                const bt = (b.timestamp as any)?.toMillis?.() || b.timestamp || 0;
-                return bt - at;
-            }));
-        });
+        const unsubNotif = onSnapshot(qNotif,
+            (snapshot) => {
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+                setNotifications(data.sort((a, b) => {
+                    const at = (a.timestamp as any)?.toMillis?.() || a.timestamp || 0;
+                    const bt = (b.timestamp as any)?.toMillis?.() || b.timestamp || 0;
+                    return bt - at;
+                }));
+            },
+            (error) => {
+                console.error('❌ Error loading notifications:', error);
+            }
+        );
+
+        let qDiscounts;
+        if (role === 'admin') {
+            qDiscounts = query(collection(db, 'discounts'), limit(100));
+        } else if (role === 'client') {
+            qDiscounts = query(collection(db, 'discounts'), where('clientId', '==', user.uid), limit(20));
+        } else {
+            setDiscounts([]);
+            return;
+        }
 
         const unsubDiscounts = onSnapshot(
-            collection(db, 'discounts'),
+            qDiscounts,
             (snapshot) => {
                 try {
                     setDiscounts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Discount)));
@@ -290,36 +323,67 @@ export const useFirestoreData = (user?: any, role?: string) => {
 
         // unsubDiscounts REMOVED - Moved to Public
 
-        const unsubIssues = onSnapshot(query(collection(db, 'issues'), limit(50)), (snapshot) => {
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as IssueReport));
-            setIssues(data.sort((a, b) => {
-                const at = (a.timestamp as any)?.toMillis?.() || a.timestamp || 0;
-                const bt = (b.timestamp as any)?.toMillis?.() || b.timestamp || 0;
-                return bt - at;
-            }));
-        });
+        const unsubIssues = onSnapshot(
+            query(collection(db, 'issues'), limit(50)),
+            (snapshot) => {
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as IssueReport));
+                setIssues(data.sort((a, b) => {
+                    const at = (a.timestamp as any)?.toMillis?.() || a.timestamp || 0;
+                    const bt = (b.timestamp as any)?.toMillis?.() || b.timestamp || 0;
+                    return bt - at;
+                }));
+            },
+            (error) => {
+                console.error('❌ Error loading issues (Admin):', error);
+            }
+        );
 
-        const unsubDeductions = onSnapshot(collection(db, 'deductions'), (snapshot) => {
-            setDeductions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Deduction)));
-        });
+        const unsubDeductions = onSnapshot(collection(db, 'deductions'),
+            (snapshot) => {
+                setDeductions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Deduction)));
+            },
+            (error) => {
+                console.error('❌ Error loading deductions (Admin):', error);
+            }
+        );
 
-        const unsubBonuses = onSnapshot(collection(db, 'bonuses'), (snapshot) => {
-            setBonuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Bonus)));
-        });
+        const unsubBonuses = onSnapshot(collection(db, 'bonuses'),
+            (snapshot) => {
+                setBonuses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Bonus)));
+            },
+            (error) => {
+                console.error('❌ Error loading bonuses (Admin):', error);
+            }
+        );
 
-        const unsubPayments = onSnapshot(query(collection(db, 'payments'), limit(50)), (snapshot) => {
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WasherPayment));
-            setPayments(data.sort((a, b) => (b.paidDate || '').localeCompare(a.paidDate || '')));
-        });
+        const unsubPayments = onSnapshot(query(collection(db, 'payments'), limit(50)),
+            (snapshot) => {
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WasherPayment));
+                setPayments(data.sort((a, b) => (b.paidDate || '').localeCompare(a.paidDate || '')));
+            },
+            (error) => {
+                console.error('❌ Error loading payments (Admin):', error);
+            }
+        );
 
-        const unsubPeriods = onSnapshot(query(collection(db, 'payroll_periods'), limit(12)), (snapshot) => {
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PayrollPeriod));
-            setPayrollPeriods(data.sort((a, b) => (b.startDate || '').localeCompare(a.startDate || '')));
-        });
+        const unsubPeriods = onSnapshot(query(collection(db, 'payroll_periods'), limit(12)),
+            (snapshot) => {
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PayrollPeriod));
+                setPayrollPeriods(data.sort((a, b) => (b.startDate || '').localeCompare(a.startDate || '')));
+            },
+            (error) => {
+                console.error('❌ Error loading payroll periods (Admin):', error);
+            }
+        );
 
-        const unsubWasherApps = onSnapshot(query(collection(db, 'washer_applications'), limit(50)), (snapshot) => {
-            setWasherApplications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        });
+        const unsubWasherApps = onSnapshot(query(collection(db, 'washer_applications'), limit(50)),
+            (snapshot) => {
+                setWasherApplications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            },
+            (error) => {
+                console.error('❌ Error loading washer applications (Admin):', error);
+            }
+        );
 
         return () => {
             // unsubDiscounts(); REMOVED

@@ -118,6 +118,8 @@ export const SupportChatClient: React.FC<SupportChatClientProps> = ({ currentUse
                     });
                 }
             });
+        }, (error) => {
+            console.error('❌ Error listening to messages in SupportChatClient:', error);
         });
 
         return () => unsubscribe();

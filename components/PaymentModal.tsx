@@ -9,11 +9,10 @@ const stripePromise = STRIPE_KEY ? loadStripe(STRIPE_KEY) : null;
 interface PaymentModalProps {
     isOpen: boolean;
     onClose: () => void;
-    amount: number;
     onSuccess: () => void;
 }
 
-const CheckoutForm: React.FC<{ amount: number, onSuccess: () => void, onClose: () => void }> = ({ amount, onSuccess, onClose }) => {
+const AddCardForm: React.FC<{ onSuccess: () => void, onClose: () => void }> = ({ onSuccess, onClose }) => {
     const stripe = useStripe();
     const elements = useElements();
     const [error, setError] = useState<string | null>(null);
@@ -28,34 +27,44 @@ const CheckoutForm: React.FC<{ amount: number, onSuccess: () => void, onClose: (
         setProcessing(true);
         setError(null);
 
-        // For this demo 'Serverless' client-side only integration:
-        // We create a Token to prove we can tokenize the card.
-        // In a real backend flow, you'd create a PaymentIntent and confirm it.
-        const cardElement = elements.getElement(CardElement);
-        if (!cardElement) {
-            setError('Card element not found');
-            setProcessing(false);
-            return;
-        }
-        const { error, paymentMethod } = await stripe.createPaymentMethod({
-            elements,
-            params: { type: 'card' }
-        } as any);
+        try {
+            // 1. Get SetupIntent Client Secret from our backend
+            const { StripeService } = await import('../services/StripeService');
+            const clientSecret = await StripeService.createSetupIntent();
 
-        if (error) {
-            setError(error.message || 'Payment failed');
-            setProcessing(false);
-        } else {
-            console.log('[PaymentMethod]', paymentMethod);
-            // Simulate server confirmation of payment method
-            setTimeout(() => {
+            // 2. Confirm the SetupIntent with the CardElement
+            const cardElement = elements.getElement(CardElement);
+            if (!cardElement) {
+                setError('Card element not found');
+                setProcessing(false);
+                return;
+            }
+
+            const { error: setupError, setupIntent } = await stripe.confirmCardSetup(
+                clientSecret,
+                {
+                    payment_method: {
+                        card: cardElement,
+                    },
+                }
+            );
+
+            if (setupError) {
+                setError(setupError.message || 'Verification failed');
+                setProcessing(false);
+            } else if (setupIntent && setupIntent.status === 'succeeded') {
+                console.log('✅ Card verified and saved successfully');
                 setProcessing(false);
                 setStep('success');
                 setTimeout(() => {
                     onSuccess();
                     onClose();
                 }, 1500);
-            }, 1000);
+            }
+        } catch (err: any) {
+            console.error('Save Card Error:', err);
+            setError(err.message || 'Failed to save card');
+            setProcessing(false);
         }
     };
 
@@ -74,8 +83,8 @@ const CheckoutForm: React.FC<{ amount: number, onSuccess: () => void, onClose: (
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             <div className="text-center mb-6">
-                <p className="text-slate-500 text-sm">Total Amount</p>
-                <p className="text-4xl font-black text-slate-900">${amount.toFixed(2)}</p>
+                <p className="text-slate-500 text-sm">Add New Card</p>
+                <p className="text-xs text-slate-400 mt-1 uppercase tracking-widest font-bold">Secure Card Verification</p>
             </div>
 
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
@@ -100,10 +109,10 @@ const CheckoutForm: React.FC<{ amount: number, onSuccess: () => void, onClose: (
             <button
                 type="submit"
                 disabled={!stripe || processing}
-                className="w-full bg-purple-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-purple-200 hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
-                {processing ? <span className="material-symbols-outlined animate-spin">progress_activity</span> : <span className="material-symbols-outlined">lock</span>}
-                {processing ? 'Processing...' : `Pay $${amount.toFixed(2)}`}
+                {processing ? <span className="material-symbols-outlined animate-spin">progress_activity</span> : <span className="material-symbols-outlined">verified_user</span>}
+                {processing ? 'Verifying Card...' : 'Verify & Save Card'}
             </button>
 
             <div className="flex justify-center gap-4 mt-4 opacity-50 grayscale">
@@ -121,8 +130,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = (props) => {
             <div className="bg-white text-slate-900 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
                 <div className="p-4 border-b flex justify-between items-center bg-slate-50">
                     <h3 className="font-bold text-lg flex items-center gap-2">
-                        <span className="material-symbols-outlined text-purple-600">secure_payment</span>
-                        Secure Checkout
+                        <span className="material-symbols-outlined text-blue-600">shield</span>
+                        Secure Add Card
                     </h3>
                     <button onClick={props.onClose} className="text-slate-400 hover:text-slate-600">
                         <span className="material-symbols-outlined">close</span>
@@ -130,7 +139,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = (props) => {
                 </div>
                 <div className="p-6">
                     <Elements stripe={stripePromise}>
-                        <CheckoutForm {...props} />
+                        <AddCardForm {...props} />
                     </Elements>
                 </div>
             </div>

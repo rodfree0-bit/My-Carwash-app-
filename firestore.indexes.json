@@ -33,6 +33,34 @@
             "queryScope": "COLLECTION",
             "fields": [
                 {
+                    "fieldPath": "clientId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "createdAt",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "orders",
+            "queryScope": "COLLECTION_GROUP",
+            "fields": [
+                {
+                    "fieldPath": "clientId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "createdAt",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "orders",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
                     "fieldPath": "washerId",
                     "order": "ASCENDING"
                 },
@@ -53,6 +81,20 @@
                 {
                     "fieldPath": "createdAt",
                     "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "orders",
+            "queryScope": "COLLECTION_GROUP",
+            "fields": [
+                {
+                    "fieldPath": "washerId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "createdAt",
+                    "order": "ASCENDING"
                 }
             ]
         },
@@ -94,6 +136,34 @@
                 },
                 {
                     "fieldPath": "timestamp",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "orders",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "date",
+                    "order": "DESCENDING"
+                },
+                {
+                    "fieldPath": "createdAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "orders",
+            "queryScope": "COLLECTION_GROUP",
+            "fields": [
+                {
+                    "fieldPath": "date",
+                    "order": "DESCENDING"
+                },
+                {
+                    "fieldPath": "createdAt",
                     "order": "DESCENDING"
                 }
             ]

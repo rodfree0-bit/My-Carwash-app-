@@ -1,9 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { storage } from '../../firebase';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 
 interface PhotoCaptureProps {
     onPhotosComplete: (photos: { [key: string]: string }) => void;
     onCancel: () => void;
     mode: 'before' | 'after';
+    orderId: string;
 }
 
 const CarIcon = ({ type }: { type: string }) => {
@@ -105,24 +108,55 @@ const REQUIRED_PHOTOS = [
     { key: 'interiorBack', label: 'Interior Back' },
 ];
 
-export const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onPhotosComplete, onCancel, mode }) => {
+export const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onPhotosComplete, onCancel, mode, orderId }) => {
     const [photos, setPhotos] = useState<{ [key: string]: string }>({});
     const [currentPhoto, setCurrentPhoto] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [capturingKey, setCapturingKey] = useState<string>('');
+    const [isWeb, setIsWeb] = useState(true); // Default to web for safety
+
+    // Detect if running on web
+    useEffect(() => {
+        const checkPlatform = () => {
+            try {
+                // Check if we're in a Capacitor environment
+                const isCapacitor = !!(window as any).Capacitor;
+                if (isCapacitor) {
+                    const platform = (window as any).Capacitor?.getPlatform?.();
+                    setIsWeb(platform === 'web');
+                } else {
+                    setIsWeb(true); // No Capacitor = web
+                }
+            } catch (error) {
+                console.log('Platform detection defaulting to web:', error);
+                setIsWeb(true); // Default to web on error
+            }
+        };
+        checkPlatform();
+    }, []);
 
     const handleCapture = async (key: string) => {
         setCapturingKey(key);
 
+        // On web platform, use file input instead of Capacitor Camera
+        if (isWeb) {
+            if (fileInputRef.current) {
+                fileInputRef.current.accept = 'image/*';
+                fileInputRef.current.setAttribute('capture', 'environment');
+                fileInputRef.current.click();
+            }
+            return;
+        }
+
         try {
-            // Import Capacitor Camera dynamically
+            // Import Capacitor Camera dynamically (only for native)
             const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
 
             const image = await Camera.getPhoto({
                 quality: 60,
                 allowEditing: false,
                 resultType: CameraResultType.DataUrl,
-                source: CameraSource.Prompt, // User Request: Camera and Gallery for Washers
+                source: CameraSource.Prompt,
                 saveToGallery: false,
                 width: 1024,
                 promptLabelHeader: 'Service Photo',
@@ -131,24 +165,26 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onPhotosComplete, on
             });
 
             if (image.dataUrl) {
-                // Save photo
+                // Upload to Firebase Storage
+                const storagePath = `orders/${orderId}/${mode}/${key}_${Date.now()}.jpg`;
+                const storageRef = ref(storage, storagePath);
+
+                await uploadString(storageRef, image.dataUrl, 'data_url');
+                const downloadURL = await getDownloadURL(storageRef);
+
+                // Save photo URL
                 setPhotos(prev => ({
                     ...prev,
-                    [key]: image.dataUrl as string
+                    [key]: downloadURL
                 }));
 
-                setCurrentPhoto(image.dataUrl as string);
+                setCurrentPhoto(downloadURL);
                 setTimeout(() => setCurrentPhoto(null), 2000);
             }
 
             setCapturingKey('');
         } catch (error: any) {
             console.error('Camera error:', error);
-            // If user cancels or camera fails, don't fallback to file input to maintain "Camera Only" rule
-            // Unless it's a critical failure where WebRTC is needed
-            if (error.message !== 'User cancelled photos app') {
-                // Silent fail or show specific instruction
-            }
             setCapturingKey('');
         }
     };
@@ -194,8 +230,15 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onPhotosComplete, on
                 reader.readAsDataURL(file);
             });
 
-            setPhotos(prev => ({ ...prev, [capturingKey]: compressedDataUrl }));
-            setCurrentPhoto(compressedDataUrl);
+            // Upload to Firebase Storage
+            const storagePath = `orders/${orderId}/${mode}/${capturingKey}_${Date.now()}.jpg`;
+            const storageRef = ref(storage, storagePath);
+
+            await uploadString(storageRef, compressedDataUrl, 'data_url');
+            const downloadURL = await getDownloadURL(storageRef);
+
+            setPhotos(prev => ({ ...prev, [capturingKey]: downloadURL }));
+            setCurrentPhoto(downloadURL);
             setTimeout(() => setCurrentPhoto(null), 2000);
         } catch (error) {
             console.error('Error compressing image:', error);

@@ -20,7 +20,7 @@ import { SupportChatClient } from './SupportChatClient';
 import { CONDITION_QUESTIONS } from '../data/conditionQuestions';
 import { storage, db } from '../firebase';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, increment } from 'firebase/firestore';
 import { LoadingSpinner } from './LoadingSpinner';
 
 // Import new screen components
@@ -31,6 +31,7 @@ import { AddressSelectionScreen } from './client/AddressSelectionScreen';
 import { OrderConfirmationScreen } from './client/OrderConfirmationScreen';
 import { PaymentMethodsScreen } from './client/PaymentMethodsScreen';
 import { LoyaltyProgram } from './LoyaltyProgram';
+import { StripeService } from '../services/StripeService';
 
 
 interface ClientProps {
@@ -301,7 +302,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
   //   }
   // }, [orderToRate, screen]);
 
-  const [weather, setWeather] = useState<{ temp: number; description: string; icon: string } | null>(null);
+  const [weather, setWeather] = useState<{ temp: number; description: string; icon: string; recommendation: string } | null>(null);
 
   useEffect(() => {
     const fetchWeather = async () => {
@@ -882,17 +883,23 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
   const [cards, setCards] = useState<any[]>(user?.savedCards || []);
   const [newCard, setNewCard] = useState({ number: '', expiry: '', cvc: '', name: '' });
 
-  // Load saved cards from user profile
-  useEffect(() => {
-    console.log('💳 Cards Effect - user.savedCards:', user.savedCards);
-    if (user.savedCards) {
-      console.log('💳 Setting cards from user profile:', user.savedCards);
-      setCards(user.savedCards);
-    } else {
-      console.log('💳 No saved cards, setting empty array');
-      setCards([]);
+  // Load saved cards from Stripe
+  const fetchStripeCards = async () => {
+    try {
+      console.log('💳 Fetching cards from Stripe...');
+      const stripeCards = await StripeService.listPaymentMethods();
+      setCards(stripeCards);
+    } catch (error) {
+      console.error('Error fetching Stripe cards:', error);
+      // showToast('Failed to load saved cards', 'error');
     }
-  }, [user.savedCards]);
+  };
+
+  useEffect(() => {
+    if (user.id) {
+      fetchStripeCards();
+    }
+  }, [user.id]);
 
 
 
@@ -1003,66 +1010,22 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
     }
   }, [cards, selectedCard]);
 
-  const handleAddCard = async () => {
-    console.log('💳 handleAddCard called');
-    console.log('💳 newCard:', newCard);
-    console.log('💳 Validation:', {
-      numberLength: newCard.number.length,
-      hasExpiry: !!newCard.expiry,
-      hasCvc: !!newCard.cvc
-    });
-
-    // More flexible validation - accept cards with at least 13 digits
-    if (newCard.number.length < 13 || !newCard.expiry || !newCard.cvc) {
-      console.log('❌ Validation failed');
-      showToast('Please fill in all card details', 'warning');
-      return;
-    }
-
-    const newCardData = {
-      id: `c${Date.now()}`,
-      brand: newCard.number.startsWith('4') ? 'Visa' : newCard.number.startsWith('5') ? 'Mastercard' : 'Card',
-      last4: newCard.number.slice(-4),
-      expiry: newCard.expiry
-    };
-
-    console.log('💳 New card data:', newCardData);
-
-    const updatedCards = [...cards, newCardData];
-    console.log('💳 Updated cards array:', updatedCards);
-    setCards(updatedCards);
-
-    // Auto-select the new card
-    console.log('💳 Auto-selecting new card:', newCardData.id);
-    setSelectedCard(newCardData.id);
-
-    // Save to Firestore
-    try {
-      console.log('💳 Saving to Firestore...');
-      await updateProfile({ savedCards: updatedCards });
-      console.log('✅ Card saved to Firestore');
-      showToast('Card saved successfully!', 'success');
-    } catch (error) {
-      console.error('❌ Error saving card:', error);
-      showToast('Card added locally but failed to sync', 'warning');
-    }
-
-    setNewCard({ number: '', expiry: '', cvc: '', name: '' });
+  const handleAddCardSuccess = () => {
+    fetchStripeCards();
+    showToast('Card added successfully!', 'success');
     setShowAddCardForm(false);
     setShowPaymentModal(false);
   };
 
   const handleDeleteCard = async (id: string) => {
-    const updatedCards = cards.filter(c => c.id !== id);
-    setCards(updatedCards);
-
-    // Save to Firestore
     try {
-      await updateProfile({ savedCards: updatedCards });
+      if (!window.confirm('Are you sure you want to remove this card?')) return;
+      await StripeService.deletePaymentMethod(id);
+      setCards(prev => prev.filter(c => c.id !== id));
       showToast('Card removed', 'success');
     } catch (error) {
       console.error('Error removing card:', error);
-      showToast('Card removed locally but failed to sync', 'warning');
+      showToast('Failed to remove card from Stripe', 'error');
     }
   };
 
@@ -1374,20 +1337,30 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
             <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-400/20 rounded-full blur-3xl animate-pulse"></div>
             <div className="absolute bottom-0 left-0 w-40 h-40 bg-blue-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
 
-            <div className="relative z-10 flex justify-between items-center">
-              <div>
-                <p className="text-cyan-400 font-bold mb-1 text-sm uppercase tracking-wide flex items-center gap-2">
-                  <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></span>
-                  Current Weather
-                </p>
-                <h2 className="text-5xl font-black text-white mb-1 bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">{weather ? `${weather.temp}°C` : '--°C'}</h2>
-                <p className="text-cyan-300 capitalize font-medium">{weather ? weather.description : 'Loading...'}</p>
+            <div className="relative z-10 flex flex-col gap-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-cyan-400 font-bold mb-1 text-sm uppercase tracking-wide flex items-center gap-2">
+                    <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></span>
+                    Current Weather
+                  </p>
+                  <h2 className="text-5xl font-black text-white mb-1 bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">{weather ? `${weather.temp}°C` : '--°C'}</h2>
+                  <p className="text-cyan-300 capitalize font-medium">{weather ? weather.description : 'Loading...'}</p>
+                </div>
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-400/30 to-blue-500/30 flex items-center justify-center border-2 border-cyan-400/40 shadow-lg shadow-cyan-500/30 backdrop-blur-sm">
+                  <span className="material-symbols-outlined text-5xl text-cyan-300">
+                    {weather ? weather.icon : 'routine'}
+                  </span>
+                </div>
               </div>
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-400/30 to-blue-500/30 flex items-center justify-center border-2 border-cyan-400/40 shadow-lg shadow-cyan-500/30 backdrop-blur-sm">
-                <span className="material-symbols-outlined text-5xl text-cyan-300">
-                  {weather ? weather.icon : 'routine'}
-                </span>
-              </div>
+
+              {weather?.recommendation && (
+                <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                  <p className="text-sm text-white/90 italic font-medium">
+                    "{weather.recommendation}"
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1630,25 +1603,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
           <PaymentModal
             isOpen={showPaymentModal}
             onClose={() => setShowPaymentModal(false)}
-            amount={pendingOrderData?.price || 0}
-            onSuccess={() => {
-              triggerNativeHaptic(100); // Stronger vibration for success
-              if (pendingOrderData) {
-                createOrder(pendingOrderData as Order);
-
-                // Trigger Confirmation Notification
-                NotificationService.notifyOrderUpdate(
-                  { phone: user.phone, email: user.email },
-                  'NEW',
-                  'Order Received! We are looking for a washer.'
-                );
-
-                showToast('Payment successful! Booking confirmed.', 'success');
-                setNewOrderDraft({ date: '', time: '', packageId: '', addons: [], price: 0, vehicleId: '' });
-                navigate(Screen.CLIENT_BOOKINGS);
-                setPendingOrderData(null);
-              }
-            }}
+            onSuccess={handleAddCardSuccess}
           />
 
           {renderGlobalModals()}
@@ -1829,7 +1784,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
                       {cards.map(card => (
                         <div key={card.id} className="bg-white/5 p-4 rounded-xl border border-white/10 flex justify-between items-center">
                           <div className="flex items-center gap-4">
-                            <div className="w-10 h-6 bg-white/10 rounded flex items-center justify-center text-xs font-bold">{card.brand}</div>
+                            <div className="w-10 h-6 bg-white/10 rounded flex items-center justify-center text-xs font-bold uppercase">{card.brand}</div>
                             <div>
                               <p className="font-bold">•••• {card.last4}</p>
                               <p className="text-xs text-slate-400">Expires {card.expiry}</p>
@@ -1839,19 +1794,15 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
                         </div>
                       ))}
                     </div>
-                    <button onClick={() => setShowAddCardForm(true)} className="w-full bg-primary h-12 rounded-xl font-bold flex items-center justify-center gap-2"><span className="material-symbols-outlined">add</span> Add New Card</button>
+                    <button onClick={() => setShowAddCardForm(true)} className="w-full bg-primary h-12 rounded-xl font-bold flex items-center justify-center gap-2 text-black"><span className="material-symbols-outlined">add</span> Add New Card</button>
                   </>
                 ) : (
                   <div className="space-y-4">
-                    <h4 className="font-bold text-slate-300">New Card Details</h4>
-                    <input type="text" placeholder="Card Number" maxLength={19} value={newCard.number} onChange={e => setNewCard({ ...newCard, number: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white" />
-                    <div className="flex gap-3">
-                      <input type="text" placeholder="MM/YY" maxLength={5} value={newCard.expiry} onChange={e => setNewCard({ ...newCard, expiry: e.target.value })} className="flex-1 bg-white/5 border border-white/10 rounded-xl p-3 text-white" />
-                      <input type="text" placeholder="CVC" maxLength={3} value={newCard.cvc} onChange={e => setNewCard({ ...newCard, cvc: e.target.value })} className="flex-1 bg-white/5 border border-white/10 rounded-xl p-3 text-white" />
-                    </div>
-                    <input type="text" placeholder="Cardholder Name" value={newCard.name} onChange={e => setNewCard({ ...newCard, name: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white" />
-                    <button onClick={handleAddCard} className="w-full bg-primary h-12 rounded-xl font-bold mt-2">Save Card</button>
-                    <button onClick={() => setShowAddCardForm(false)} className="w-full text-slate-400 py-2">Cancel</button>
+                    <PaymentModal
+                      isOpen={showAddCardForm}
+                      onClose={() => setShowAddCardForm(false)}
+                      onSuccess={handleAddCardSuccess}
+                    />
                   </div>
                 )}
               </div>
@@ -2601,7 +2552,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
                     {cards.map(card => (
                       <div key={card.id} className="bg-white/5 p-4 rounded-xl border border-white/10 flex justify-between items-center">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-6 bg-white/10 rounded flex items-center justify-center text-xs font-bold">{card.brand}</div>
+                          <div className="w-10 h-6 bg-white/10 rounded flex items-center justify-center text-xs font-bold uppercase">{card.brand}</div>
                           <div>
                             <p className="font-bold">•••• {card.last4}</p>
                             <p className="text-xs text-slate-400">Expires {card.expiry}</p>
@@ -2611,19 +2562,15 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
                       </div>
                     ))}
                   </div>
-                  <button onClick={() => setShowAddCardForm(true)} className="w-full bg-primary h-12 rounded-xl font-bold flex items-center justify-center gap-2"><span className="material-symbols-outlined">add</span> Add New Card</button>
+                  <button onClick={() => setShowAddCardForm(true)} className="w-full bg-primary h-12 rounded-xl font-bold flex items-center justify-center gap-2 text-black"><span className="material-symbols-outlined">add</span> Add New Card</button>
                 </>
               ) : (
                 <div className="space-y-4">
-                  <h4 className="font-bold text-slate-300">New Card Details</h4>
-                  <input type="text" placeholder="Card Number" maxLength={19} value={newCard.number} onChange={e => setNewCard({ ...newCard, number: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white" />
-                  <div className="flex gap-3">
-                    <input type="text" placeholder="MM/YY" maxLength={5} value={newCard.expiry} onChange={e => setNewCard({ ...newCard, expiry: e.target.value })} className="flex-1 bg-white/5 border border-white/10 rounded-xl p-3 text-white" />
-                    <input type="text" placeholder="CVC" maxLength={3} value={newCard.cvc} onChange={e => setNewCard({ ...newCard, cvc: e.target.value })} className="flex-1 bg-white/5 border border-white/10 rounded-xl p-3 text-white" />
-                  </div>
-                  <input type="text" placeholder="Cardholder Name" value={newCard.name} onChange={e => setNewCard({ ...newCard, name: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white" />
-                  <button onClick={handleAddCard} className="w-full bg-primary h-12 rounded-xl font-bold mt-2">Save Card</button>
-                  <button onClick={() => setShowAddCardForm(false)} className="w-full text-slate-400 py-2">Cancel</button>
+                  <PaymentModal
+                    isOpen={showAddCardForm}
+                    onClose={() => setShowAddCardForm(false)}
+                    onSuccess={handleAddCardSuccess}
+                  />
                 </div>
               )}
             </div>
@@ -2635,7 +2582,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
 
   // CLIENT_CONFIRM Screen (Order Confirmation)
   if ((screen as any) === Screen.CLIENT_CONFIRM) {
-    const handleConfirmOrder = () => {
+    const handleConfirmOrder = (finalTotal: number, discount?: import('../types').Discount | null) => {
       if (!selectedLocation) {
         showToast('Location error: Could not retrieve coordinates. Please re-select the address.', 'error');
         return;
@@ -2684,26 +2631,55 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
       };
 
       setIsProcessingOrder(true);
-      createOrder(orderData).then((docId) => {
-        setIsProcessingOrder(false);
-        // OPTIMISTIC UPDATE: Add to active orders immediately
-        const optimisticOrder: Order = {
-          id: docId,
-          ...orderData,
-          createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 } as any,
-          vehicleName: orderData.vehicleConfigs[0]?.vehicleType, // Fallback name
-          // Legacy fields for compatibility
-          vehicle: orderData.vehicleConfigs[0]?.vehicleModel || 'Unknown Vehicle',
-          vehicleType: orderData.vehicleConfigs[0]?.vehicleType || 'sedan',
-          service: orderData.packageName
-        };
-        setOptimisticOrders(prev => [optimisticOrder, ...prev]);
+      createOrder(orderData).then(async (docId) => {
+        try {
+          // 1. INCREMENT DISCOUNT USAGE IF APPLICABLE
+          if (discount?.id) {
+            console.log('🎟️ Marking discount as used:', discount.code);
+            const discountRef = doc(db, 'discounts', discount.id);
+            await updateDoc(discountRef, {
+              usageCount: increment(1)
+            });
+          }
 
-        // Clear configs
-        setVehicleConfigs([]);
-        setTempSelectedVehicles([]);
+          // 2. PROCESS REAL STRIPE PAYMENT
+          const selectedCardData = cards.find(c => c.id === selectedCard) || cards[0];
+          if (!selectedCardData) {
+            throw new Error('No payment method selected');
+          }
 
-        navigate(Screen.CLIENT_HOME); // Go to Home to see the "Active Order"
+          console.log('💳 Processing Stripe payment for order:', docId);
+          await StripeService.createPayment(totalPrice, selectedCardData.id, docId);
+          console.log('✅ Payment processed successfully');
+
+          setIsProcessingOrder(false);
+          // OPTIMISTIC UPDATE: Add to active orders immediately
+          const optimisticOrder: Order = {
+            id: docId,
+            ...orderData,
+            status: 'Pending',
+            createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 } as any,
+            vehicleName: orderData.vehicleConfigs[0]?.vehicleType, // Fallback name
+            // Legacy fields for compatibility
+            vehicle: orderData.vehicleConfigs[0]?.vehicleModel || 'Unknown Vehicle',
+            vehicleType: orderData.vehicleConfigs[0]?.vehicleType || 'sedan',
+            service: orderData.packageName
+          };
+          setOptimisticOrders(prev => [optimisticOrder, ...prev]);
+
+          // Clear configs
+          setVehicleConfigs([]);
+          setTempSelectedVehicles([]);
+
+          navigate(Screen.CLIENT_HOME); // Go to Home to see the "Active Order"
+        } catch (paymentErr: any) {
+          console.error("Payment failed:", paymentErr);
+          // In a real app, you might want to mark the order as "payment_failed" or delete it
+          // For now, we inform the user. The order is already created in Firestore with paymentStatus: 'failed' (or unpaid)
+          setIsProcessingOrder(false);
+          updateOrder(docId, { status: 'Cancelled', cancelReason: `Payment failed: ${paymentErr.message}` });
+          showToast(`Payment failed: ${paymentErr.message}. Order cancelled.`, "error");
+        }
       }).catch(err => {
         console.error("Order creation failed:", err);
         setIsProcessingOrder(false);
@@ -2751,7 +2727,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
                     {cards.map(card => (
                       <div key={card.id} className="bg-white/5 p-4 rounded-xl border border-white/10 flex justify-between items-center">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-6 bg-white/10 rounded flex items-center justify-center text-xs font-bold text-white">{card.brand}</div>
+                          <div className="w-10 h-6 bg-white/10 rounded flex items-center justify-center text-xs font-bold text-white uppercase">{card.brand}</div>
                           <div>
                             <p className="font-bold text-white">•••• {card.last4}</p>
                             <p className="text-xs text-slate-400">Expires {card.expiry}</p>
@@ -2765,15 +2741,11 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
                 </>
               ) : (
                 <div className="space-y-4">
-                  <h4 className="font-bold text-slate-300">New Card Details</h4>
-                  <input type="text" placeholder="Card Number" maxLength={19} value={newCard.number} onChange={e => setNewCard({ ...newCard, number: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white" />
-                  <div className="flex gap-3">
-                    <input type="text" placeholder="MM/YY" maxLength={5} value={newCard.expiry} onChange={e => setNewCard({ ...newCard, expiry: e.target.value })} className="flex-1 bg-white/5 border border-white/10 rounded-xl p-3 text-white" />
-                    <input type="text" placeholder="CVC" maxLength={3} value={newCard.cvc} onChange={e => setNewCard({ ...newCard, cvc: e.target.value })} className="flex-1 bg-white/5 border border-white/10 rounded-xl p-3 text-white" />
-                  </div>
-                  <input type="text" placeholder="Cardholder Name" value={newCard.name} onChange={e => setNewCard({ ...newCard, name: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white" />
-                  <button onClick={handleAddCard} className="w-full bg-primary h-12 rounded-xl font-bold mt-2 text-black">Save Card</button>
-                  <button onClick={() => setShowAddCardForm(false)} className="w-full text-slate-400 py-2">Cancel</button>
+                  <PaymentModal
+                    isOpen={showAddCardForm}
+                    onClose={() => setShowAddCardForm(false)}
+                    onSuccess={handleAddCardSuccess}
+                  />
                 </div>
               )}
             </div>

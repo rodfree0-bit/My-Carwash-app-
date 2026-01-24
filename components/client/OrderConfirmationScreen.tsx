@@ -11,7 +11,7 @@ interface OrderConfirmationScreenProps {
     selectedTime: string;
     selectedAddress: string;
     navigate: (screen: Screen) => void;
-    onConfirmOrder: (finalTotal: number) => void;
+    onConfirmOrder: (finalTotal: number, discount?: Discount | null) => void;
     globalFees: { name: string, percentage: number }[];
     discounts: Discount[];
     showFeesToClient?: boolean;
@@ -415,7 +415,7 @@ export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = (
                     </div>
                 </div>
                 <button
-                    onClick={() => onConfirmOrder(finalTotal)}
+                    onClick={() => onConfirmOrder(finalTotal, appliedDiscount)}
                     style={{ backgroundColor: '#3b82f6' }}
                     className="w-full h-14 rounded-xl font-bold text-lg text-white shadow-blue active:scale-[0.98] transition-all"
                 >

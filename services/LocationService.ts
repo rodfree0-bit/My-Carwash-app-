@@ -13,6 +13,10 @@ export interface Location {
 export class LocationService {
     private static watchId: number | null = null;
     private static isTracking = false;
+    private static washerId: string | null = null;
+    private static orderId: string | null = null;
+    private static lastUpdateTimestamp = 0;
+    private static readonly UPDATE_INTERVAL = 120000; // 2 minutes in ms
 
     /**
      * Start tracking washer location and update Firestore in real-time
@@ -24,8 +28,12 @@ export class LocationService {
                 return;
             }
 
+            // Update IDs if already tracking
+            this.washerId = washerId;
+            this.orderId = orderId || null;
+
             if (this.isTracking) {
-                console.log('Location tracking already active');
+                console.log('Location tracking already active, updated IDs');
                 resolve();
                 return;
             }
@@ -35,6 +43,14 @@ export class LocationService {
             // Request high-accuracy location updates
             this.watchId = navigator.geolocation.watchPosition(
                 async (position) => {
+                    const now = Date.now();
+
+                    // Throttle updates to every 2 minutes (unless it's the first one)
+                    if (this.lastUpdateTimestamp > 0 && (now - this.lastUpdateTimestamp < this.UPDATE_INTERVAL)) {
+                        // console.log('Skipping update, too soon:', now - this.lastUpdateTimestamp);
+                        return;
+                    }
+
                     const location: Location = {
                         latitude: position.coords.latitude,
                         longitude: position.coords.longitude,
@@ -45,41 +61,58 @@ export class LocationService {
                     };
 
                     try {
+                        this.lastUpdateTimestamp = now;
+
                         // Update washer's current location in Firestore
-                        const washerRef = doc(db, 'team', washerId);
-                        await setDoc(washerRef, {
-                            currentLocation: location,
-                            lastLocationUpdate: Timestamp.now(),
-                        }, { merge: true });
+                        if (this.washerId) {
+                            const washerRef = doc(db, 'team', this.washerId);
+                            await setDoc(washerRef, {
+                                currentLocation: location,
+                                lastLocationUpdate: Timestamp.now(),
+                            }, { merge: true });
+                        }
 
                         // If tracking for a specific order, update order location too
-                        if (orderId) {
-                            const orderRef = doc(db, 'orders', orderId);
+                        if (this.orderId) {
+                            const orderRef = doc(db, 'orders', this.orderId);
                             await updateDoc(orderRef, {
-                                washerLocation: location,
+                                washerLocation: {
+                                    lat: location.latitude,
+                                    lng: location.longitude,
+                                    timestamp: Timestamp.now()
+                                },
                                 lastLocationUpdate: Timestamp.now(),
                             });
                         }
 
-                        console.log('Location updated:', location);
+                        console.log('Location updated (2min interval):', location);
                     } catch (error) {
                         console.error('Error updating location:', error);
                     }
                 },
                 (error) => {
                     console.error('Geolocation error:', error);
-                    this.isTracking = false;
-                    reject(error);
+                    // Don't fully stop, just log. Sometimes it recovers.
+                    // this.isTracking = false; 
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 5000, // Accept cached position up to 5 seconds old
+                    timeout: 20000,
+                    maximumAge: 10000, // Accept cached position up to 10 seconds old
                 }
             );
 
             resolve();
         });
+    }
+
+    /**
+     * Force update tracking IDs without starting a new watch
+     */
+    static updateTrackingIds(washerId: string, orderId?: string): void {
+        this.washerId = washerId;
+        this.orderId = orderId || null;
+        console.log('Updated tracking IDs:', { washerId, orderId });
     }
 
     /**
@@ -90,6 +123,9 @@ export class LocationService {
             navigator.geolocation.clearWatch(this.watchId);
             this.watchId = null;
             this.isTracking = false;
+            this.washerId = null;
+            this.orderId = null;
+            this.lastUpdateTimestamp = 0;
             console.log('Location tracking stopped');
         }
     }

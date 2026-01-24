@@ -208,7 +208,17 @@ export const onOrderUpdated = functions.firestore
                 }
             }
 
-            // Send all notifications
+            // 4. AWARD LOYALTY POINTS - When order is completed
+            if (statusChanged && after.status === 'Completed' && after.clientId) {
+                console.log(`⭐ Awarding 1 loyalty point to client: ${after.clientId}`);
+                notifications.push(
+                    admin.firestore().collection('users').doc(after.clientId).update({
+                        loyaltyPoints: admin.firestore.FieldValue.increment(1)
+                    })
+                );
+            }
+
+            // Send all notifications and updates
             if (notifications.length > 0) {
                 await Promise.all(notifications);
                 console.log(`✅ Sent ${notifications.length} notification(s)`);

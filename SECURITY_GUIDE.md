@@ -40,9 +40,7 @@
 
 ### 3. Cloud Functions con Autenticación
 **Archivos**: 
-- `functions/src/createSquarePayment.ts`
-- `functions/src/completeSquarePayment.ts`
-- `functions/src/cancelSquareOrder.ts`
+- `functions/index.js` (Stripe Functions)
 
 **Mejoras Implementadas**:
 - ✅ **Verificación de Firebase Auth**: Todas las funciones requieren token válido
@@ -58,7 +56,7 @@
 ---
 
 ### 4. Cliente Actualizado con Autenticación
-**Archivo**: `services/SquareService.ts`
+**Archivo**: `services/StripeService.ts`
 
 **Mejoras**:
 - ✅ Obtención automática de Firebase Auth token

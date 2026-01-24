@@ -134,7 +134,8 @@ exports.onNewOrderCreated = onDocumentCreated({
 // ============================================
 exports.onOrderStatusUpdated = onDocumentUpdated({
     document: "orders/{orderId}",
-    database: "(default)"
+    database: "(default)",
+    region: "us-central1"
 }, async (event) => {
     const change = event.data;
     if (!change) return null;
@@ -194,6 +195,18 @@ exports.onOrderStatusUpdated = onDocumentUpdated({
         notificationTitle = "Order Complete";
         notificationBody = "Your wash is complete. Please rate the service.";
         targetUserId = clientId;
+
+        // Award 1 loyalty point (1 wash = 1 point)
+        if (clientId) {
+            console.log(`⭐ Awarding 1 loyalty point to client: ${clientId}`);
+            try {
+                await getFirestore().collection("users").doc(clientId).update({
+                    loyaltyPoints: admin.firestore.FieldValue.increment(1)
+                });
+            } catch (error) {
+                console.error(`❌ Error awarding loyalty points to ${clientId}:`, error);
+            }
+        }
     }
     else if (newData.status === "Cancelled") {
         // Notify washer ONLY if order was actively in progress or assigned
@@ -253,7 +266,8 @@ exports.onOrderStatusUpdated = onDocumentUpdated({
 // ============================================
 exports.onNewIssueReported = onDocumentCreated({
     document: "issues/{issueId}",
-    database: "(default)"
+    database: "(default)",
+    region: "us-central1"
 }, async (event) => {
     const issueData = event.data.data();
     const issueId = event.params.issueId;
@@ -296,7 +310,8 @@ exports.onNewIssueReported = onDocumentCreated({
 // ============================================
 exports.onNewWasherApplication = onDocumentCreated({
     document: "washer_applications/{applicationId}",
-    database: "(default)"
+    database: "(default)",
+    region: "us-central1"
 }, async (event) => {
     const applicationData = event.data.data();
     const applicationId = event.params.applicationId;
@@ -339,7 +354,8 @@ exports.onNewWasherApplication = onDocumentCreated({
 // ============================================
 exports.onNewMessage = onDocumentCreated({
     document: "messages/{messageId}",
-    database: "(default)"
+    database: "(default)",
+    region: "us-central1"
 }, async (event) => {
     const messageData = event.data.data();
     const messageId = event.params.messageId;
@@ -382,7 +398,8 @@ exports.onNewMessage = onDocumentCreated({
 // ============================================
 exports.onWasherApproved = onDocumentCreated({
     document: "approved_washers/{email}",
-    database: "(default)"
+    database: "(default)",
+    region: "us-central1"
 }, async (event) => {
     const approvalData = event.data.data();
     const email = event.params.email;
@@ -790,7 +807,316 @@ exports.scheduledSeoUpdate = onSchedule({
 });
 
 // ============================================
-// 12. SQUARE PAYMENT INTEGRATION
+// 12. STRIPE PAYMENT INTEGRATION
+// ============================================
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY || "sk_test_placeholder");
+
+// Helper: Get or Create Stripe Customer
+async function getOrCreateStripeCustomer(userId, email, name) {
+    const db = getFirestore();
+    const userRef = db.collection('users').doc(userId);
+    const userDoc = await userRef.get();
+
+    if (userDoc.exists && userDoc.data().stripeCustomerId) {
+        return userDoc.data().stripeCustomerId;
+    }
+
+    // Create new customer in Stripe
+    const customer = await stripe.customers.create({
+        email: email,
+        name: name,
+        metadata: {
+            firebaseUID: userId
+        }
+    });
+
+    // Save to Firestore
+    await userRef.update({
+        stripeCustomerId: customer.id
+    });
+
+    return customer.id;
+}
+
+// 1. Create Setup Intent (for saving a card)
+exports.createStripeSetupIntent = onRequest({
+    memory: "256MiB",
+    region: "us-central1"
+}, async (req, res) => {
+    // CORS
+    res.set('Access-Control-Allow-Origin', '*');
+    if (req.method === 'OPTIONS') {
+        res.set('Access-Control-Allow-Methods', 'POST');
+        res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.status(204).send('');
+        return;
+    }
+
+    try {
+        const auth = await verifyAuth(req);
+        if (!auth) {
+            res.status(401).json({ error: 'Unauthorized' });
+            return;
+        }
+
+        const stripeCustomerId = await getOrCreateStripeCustomer(auth.uid, auth.email, 'Client');
+
+        const setupIntent = await stripe.setupIntents.create({
+            customer: stripeCustomerId,
+            payment_method_types: ['card'],
+        });
+
+        res.status(200).json({
+            clientSecret: setupIntent.client_secret
+        });
+    } catch (error) {
+        console.error('Stripe SetupIntent Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 2. List Saved Payment Methods
+exports.listStripePaymentMethods = onRequest({
+    memory: "256MiB",
+    region: "us-central1"
+}, async (req, res) => {
+    // CORS
+    res.set('Access-Control-Allow-Origin', '*');
+    if (req.method === 'OPTIONS') {
+        res.set('Access-Control-Allow-Methods', 'POST');
+        res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.status(204).send('');
+        return;
+    }
+
+    try {
+        const auth = await verifyAuth(req);
+        if (!auth) {
+            res.status(401).json({ error: 'Unauthorized' });
+            return;
+        }
+
+        const db = getFirestore();
+        const userDoc = await db.collection('users').doc(auth.uid).get();
+        const stripeCustomerId = userDoc.data()?.stripeCustomerId;
+
+        if (!stripeCustomerId) {
+            res.status(200).json({ paymentMethods: [] });
+            return;
+        }
+
+        const paymentMethods = await stripe.paymentMethods.list({
+            customer: stripeCustomerId,
+            type: 'card',
+        });
+
+        // Format for frontend
+        const formattedMethods = paymentMethods.data.map(pm => ({
+            id: pm.id,
+            brand: pm.card.brand,
+            last4: pm.card.last4,
+            expiry: `${pm.card.exp_month}/${pm.card.exp_year.toString().slice(-2)}`,
+            isDefault: false // Could be enhanced later
+        }));
+
+        res.status(200).json({ paymentMethods: formattedMethods });
+    } catch (error) {
+        console.error('Stripe List Methods Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 3. Delete Payment Method
+exports.deleteStripePaymentMethod = onRequest({
+    memory: "256MiB",
+    region: "us-central1"
+}, async (req, res) => {
+    // CORS
+    res.set('Access-Control-Allow-Origin', '*');
+    if (req.method === 'OPTIONS') {
+        res.set('Access-Control-Allow-Methods', 'POST');
+        res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.status(204).send('');
+        return;
+    }
+
+    try {
+        const auth = await verifyAuth(req);
+        if (!auth) {
+            res.status(401).json({ error: 'Unauthorized' });
+            return;
+        }
+
+        const { paymentMethodId } = req.body;
+        if (!paymentMethodId) {
+            res.status(400).json({ error: 'Missing paymentMethodId' });
+            return;
+        }
+
+        await stripe.paymentMethods.detach(paymentMethodId);
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('Stripe Delete Method Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 4. Create Stripe Payment Intent (Process Order)
+exports.createStripePayment = onRequest({
+    memory: "256MiB",
+    region: "us-central1"
+}, async (req, res) => {
+    // CORS
+    res.set('Access-Control-Allow-Origin', '*');
+    if (req.method === 'OPTIONS') {
+        res.set('Access-Control-Allow-Methods', 'POST');
+        res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.status(204).send('');
+        return;
+    }
+
+    try {
+        const auth = await verifyAuth(req);
+        if (!auth) {
+            res.status(401).json({ error: 'Unauthorized' });
+            return;
+        }
+
+        const { amount, paymentMethodId, orderId } = req.body;
+
+        if (!amount || !paymentMethodId || !orderId) {
+            res.status(400).json({ error: 'Missing required fields' });
+            return;
+        }
+
+        // Verify Order Ownership
+        const db = getFirestore();
+        const orderRef = db.collection('orders').doc(orderId);
+        const orderDoc = await orderRef.get();
+
+        if (!orderDoc.exists || orderDoc.data().clientId !== auth.uid) {
+            res.status(403).json({ error: 'Forbidden' });
+            return;
+        }
+
+        const stripeCustomerId = await getOrCreateStripeCustomer(auth.uid, auth.email, 'Client');
+
+        // Create PaymentIntent
+        const paymentIntent = await stripe.paymentIntents.create({
+            amount: Math.round(amount * 100), // in cents
+            currency: 'usd',
+            customer: stripeCustomerId,
+            payment_method: paymentMethodId,
+            off_session: true,
+            confirm: true,
+            metadata: {
+                orderId: orderId,
+                firebaseUID: auth.uid
+            },
+            description: `Order ${orderId} - Car Wash`
+        });
+
+        // Update Order in Firestore
+        await orderRef.update({
+            paymentStatus: 'paid',
+            paymentId: paymentIntent.id,
+            paymentMethod: 'stripe',
+            paidAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        res.status(200).json({
+            success: true,
+            paymentId: paymentIntent.id,
+            status: paymentIntent.status
+        });
+
+    } catch (error) {
+        console.error('Stripe Payment Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 5. Refund Stripe Payment (Admin Only)
+exports.refundStripePayment = onRequest({
+    memory: "256MiB",
+    region: "us-central1"
+}, async (req, res) => {
+    // CORS
+    res.set('Access-Control-Allow-Origin', '*');
+    if (req.method === 'OPTIONS') {
+        res.set('Access-Control-Allow-Methods', 'POST');
+        res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.status(204).send('');
+        return;
+    }
+
+    try {
+        const auth = await verifyAuth(req);
+        if (!auth) {
+            res.status(401).json({ error: 'Unauthorized' });
+            return;
+        }
+
+        // Verify Admin Role
+        const db = getFirestore();
+        const userDoc = await db.collection('users').doc(auth.uid).get();
+        const userRole = userDoc.data()?.role;
+
+        if (userRole !== 'admin') {
+            res.status(403).json({ error: 'Forbidden: Admin access required' });
+            return;
+        }
+
+        const { orderId, paymentIntentId, reason } = req.body;
+
+        if (!orderId || !paymentIntentId) {
+            res.status(400).json({ error: 'Missing orderId or paymentIntentId' });
+            return;
+        }
+
+        // Verify Order Exists
+        const orderRef = db.collection('orders').doc(orderId);
+        const orderDoc = await orderRef.get();
+
+        if (!orderDoc.exists) {
+            res.status(404).json({ error: 'Order not found' });
+            return;
+        }
+
+        // Process Refund
+        const refund = await stripe.refunds.create({
+            payment_intent: paymentIntentId,
+            reason: reason || 'requested_by_customer',
+            metadata: {
+                orderId: orderId,
+                refundedBy: auth.uid
+            }
+        });
+
+        // Update Order in Firestore
+        await orderRef.update({
+            paymentStatus: 'Refunded',
+            refundId: refund.id,
+            refundedAt: admin.firestore.FieldValue.serverTimestamp(),
+            refundedBy: auth.uid,
+            refundReason: reason || 'Admin refund'
+        });
+
+        res.status(200).json({
+            success: true,
+            refundId: refund.id,
+            status: refund.status,
+            amount: refund.amount / 100
+        });
+
+    } catch (error) {
+        console.error('Stripe Refund Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ============================================
+// 13. UTILS (Shared)
 // ============================================
 
 // Helper: Verify Auth Token
@@ -813,11 +1139,11 @@ async function verifyAuth(req) {
 // Helper: Rate Limiting
 async function checkPaymentRateLimit(userId) {
     try {
-        const db = getFirestore(); // Admin SDK
+        const db = getFirestore();
         const rateLimitRef = db.collection('rate_limits').doc(`${userId}_payment`);
         const rateLimitDoc = await rateLimitRef.get();
         const now = Date.now();
-        const windowMs = 60 * 60 * 1000; // 1 hour
+        const windowMs = 60 * 60 * 1000;
         const maxAttempts = 15;
 
         if (!rateLimitDoc.exists) {
@@ -859,140 +1185,9 @@ async function checkPaymentRateLimit(userId) {
         return { allowed: true };
     } catch (error) {
         console.error('Error checking rate limit:', error);
-        return { allowed: true }; // Fail open
+        return { allowed: true };
     }
 }
-
-exports.createSquarePayment = onRequest({
-    memory: "256MiB",
-    region: "us-central1"
-}, async (req, res) => {
-    // CORS
-    res.set('Access-Control-Allow-Origin', '*');
-    if (req.method === 'OPTIONS') {
-        res.set('Access-Control-Allow-Methods', 'POST');
-        res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-        res.status(204).send('');
-        return;
-    }
-
-    if (req.method !== 'POST') {
-        res.status(405).json({ error: 'Method Not Allowed' });
-        return;
-    }
-
-    try {
-        // 1. Auth
-        const auth = await verifyAuth(req);
-        if (!auth) {
-            res.status(401).json({ error: 'Unauthorized', message: 'You must be logged in' });
-            return;
-        }
-
-        // 2. Rate Limit
-        const rateLimit = await checkPaymentRateLimit(auth.uid);
-        if (!rateLimit.allowed) {
-            res.status(429).json({ error: 'Too Many Requests', message: rateLimit.message });
-            return;
-        }
-
-        // 3. Input Validation
-        const data = req.body;
-        if (!data.amount || !data.sourceId || !data.orderId) {
-            res.status(400).json({ error: 'Invalid Input', message: 'Missing required fields' });
-            return;
-        }
-
-        // 4. Order Verification
-        const db = getFirestore();
-        const orderRef = db.collection('orders').doc(data.orderId);
-        const orderDoc = await orderRef.get();
-        if (!orderDoc.exists) {
-            res.status(404).json({ error: 'Order not found' });
-            return;
-        }
-        if (orderDoc.data().clientId !== auth.uid) {
-            res.status(403).json({ error: 'Forbidden' });
-            return;
-        }
-
-        // 5. Square Init
-        // Use try/catch for import as well
-        let SquareClient;
-        try {
-            const squarePkg = require("square");
-            SquareClient = squarePkg.SquareClient || squarePkg.Client;
-        } catch (e) {
-            console.error("Failed to require square:", e);
-            throw new Error("Square SDK Error");
-        }
-
-        const client = new SquareClient({
-            bearerAuthCredentials: {
-                accessToken: process.env.SQUARE_ACCESS_TOKEN
-            },
-            environment: 'sandbox'
-        });
-
-        // 6. Create Payment
-        // JSON.parse(JSON.stringify(...)) hack for BigInt if needed, but Square SDK handles BigInt
-        const amountInCents = BigInt(Math.round(data.amount * 100));
-
-        const { result } = await client.paymentsApi.createPayment({
-            sourceId: data.sourceId,
-            idempotencyKey: data.orderId, // Simple idempotency
-            amountMoney: {
-                amount: amountInCents,
-                currency: 'USD'
-            },
-            locationId: process.env.SQUARE_LOCATION_ID,
-            buyerEmailAddress: auth.email,
-            note: `Order ${data.orderId}`
-        });
-
-        console.log(`✅ Payment created: ${result.payment.id}`);
-
-        // Log to security
-        await db.collection('security_logs').add({
-            type: 'payment_created',
-            userId: auth.uid,
-            paymentId: result.payment.id,
-            amount: data.amount,
-            timestamp: admin.firestore.FieldValue.serverTimestamp()
-        });
-
-        // Update Order Status to Paid? Or Client handles that?
-        // Usually we update order here to avoid race conditions
-        await orderRef.update({
-            paymentStatus: 'paid',
-            paymentId: result.payment.id,
-            paymentMethod: 'square',
-            paidAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-
-        // Handle BigInt serialization for JSON response
-        const responseData = {
-            paymentId: result.payment.id,
-            status: result.payment.status,
-            amount: data.amount
-        };
-
-        res.status(200).json(responseData);
-
-    } catch (error) {
-        console.error('Payment Error:', error);
-
-        // Handle BigInt serialization in error if needed by not sending raw error object
-        let msg = 'Payment failed';
-        if (error.errors && error.errors.length > 0) {
-            msg = error.errors[0].detail || error.errors[0].category;
-        } else if (error.message) {
-            msg = error.message;
-        }
-
-        res.status(500).json({ error: 'Payment Failed', message: msg });
-    }
-});
 // ============================================
 // GOOGLE MAPS ROUTE PROXY
 // ============================================

@@ -87,6 +87,8 @@ export const GuestSupportChat: React.FC<GuestSupportChatProps> = ({ onClose }) =
             } as Message));
             // Sort by timestamp asc
             setMessages(msgs.sort((a, b) => (a.timestamp?.toMillis?.() || 0) - (b.timestamp?.toMillis?.() || 0)));
+        }, (error) => {
+            console.error('❌ Error listening to guest support messages:', error);
         });
 
         return () => unsubscribe();

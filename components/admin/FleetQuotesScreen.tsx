@@ -29,6 +29,9 @@ export const FleetQuotesScreen: React.FC<{ navigate: (s: Screen) => void }> = ({
             })) as FleetQuote[];
             setQuotes(quoteData);
             setLoading(loading => false);
+        }, (error) => {
+            console.error('❌ Error loading fleet quotes:', error);
+            setLoading(false);
         });
 
         return () => unsubscribe();
