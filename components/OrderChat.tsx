@@ -63,7 +63,9 @@ export const OrderChat: React.FC<OrderChatProps> = ({
                         <p className="text-[10px] text-slate-500">Order #{orderId.slice(-6)}</p>
                     </div>
                 </div>
-                <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+                <button
+                    onClick={onClose}
+                    className="text-slate-400 hover:text-white transition-colors z-50 relative cursor-pointer">
                     <span className="material-symbols-outlined">keyboard_arrow_down</span>
                 </button>
             </div>

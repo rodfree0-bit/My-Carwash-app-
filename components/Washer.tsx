@@ -162,6 +162,8 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [chatManuallyClosed, setChatManuallyClosed] = useState(false);
+  const [lastUnreadCount, setLastUnreadCount] = useState(0);
 
   // Global Fees State
   const [globalFees, setGlobalFees] = useState<{ name: string, percentage: number }[]>([]);
@@ -254,9 +256,9 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
 
   const unreadCount = notifications.filter(n => !n.read && n.userId === currentWasherId).length;
 
-  // Auto-open chat on new message
+  // Auto-open chat on new message (only if not manually closed)
   useEffect(() => {
-    if (chatUnreadCount > 0 && !showChat) {
+    if (chatUnreadCount > 0 && !showChat && !chatManuallyClosed) {
       // Check if the last message is from the client (not self)
       const lastMsg = activeChatMessages[activeChatMessages.length - 1];
       if (lastMsg && lastMsg.senderId !== currentWasherId) {
@@ -265,7 +267,13 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
         // Optional: Play a sound here if not handled globally
       }
     }
-  }, [chatUnreadCount, activeChatMessages, showChat, currentWasherId]);
+
+    // Reset manual close flag when new messages arrive
+    if (chatUnreadCount > lastUnreadCount) {
+      setChatManuallyClosed(false);
+    }
+    setLastUnreadCount(chatUnreadCount);
+  }, [chatUnreadCount, activeChatMessages, showChat, chatManuallyClosed, currentWasherId, lastUnreadCount]);
 
   // --- LOCATION TRACKING REMOVED ---
   // Tracking is now handled globally by LocationTracker component in App.tsx
@@ -1500,7 +1508,7 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
                 messages={messages}
                 sendMessage={sendMessage as any}
                 isOpen={showChat}
-                onClose={() => setShowChat(false)}
+                onClose={() => { setShowChat(false); setChatManuallyClosed(true); }}
               />
             )
           }
@@ -1867,7 +1875,7 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
             messages={messages}
             sendMessage={sendMessage as any}
             isOpen={showChat}
-            onClose={() => setShowChat(false)}
+            onClose={() => { setShowChat(false); setChatManuallyClosed(true); }}
           />
         )}
       </div>
@@ -2240,7 +2248,7 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
       {activeJob && (
         <>
           <button
-            onClick={() => setShowChat(true)}
+            onClick={() => { setShowChat(true); setChatManuallyClosed(false); }}
             className="fixed bottom-24 right-6 w-14 h-14 bg-slate-800 border border-white/10 rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-50 backdrop-blur-md"
           >
             <span className="material-symbols-outlined text-white text-2xl">chat</span>
@@ -2262,7 +2270,7 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
               messages={messages}
               sendMessage={sendMessage}
               isOpen={showChat}
-              onClose={() => setShowChat(false)}
+              onClose={() => { setShowChat(false); setChatManuallyClosed(true); }}
             />
           )}
         </>
