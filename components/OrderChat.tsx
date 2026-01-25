@@ -37,6 +37,12 @@ export const OrderChat: React.FC<OrderChatProps> = ({
 
     const handleSend = () => {
         if (!newMessage.trim()) return;
+        console.log('📤 Sending message:', {
+            from: currentUserId,
+            to: otherUserId,
+            orderId,
+            content: newMessage.trim()
+        });
         sendMessage(currentUserId, otherUserId, orderId, newMessage.trim());
         setNewMessage('');
     };
@@ -64,8 +70,12 @@ export const OrderChat: React.FC<OrderChatProps> = ({
                     </div>
                 </div>
                 <button
-                    onClick={onClose}
-                    className="text-slate-400 hover:text-white transition-colors z-50 relative cursor-pointer">
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        console.log('🔽 Closing chat...');
+                        onClose();
+                    }}
+                    className="text-slate-400 hover:text-white transition-colors z-50 relative cursor-pointer p-2 -m-2">
                     <span className="material-symbols-outlined">keyboard_arrow_down</span>
                 </button>
             </div>

@@ -34,7 +34,7 @@ export default defineConfig(({ mode }) => {
         },
         input: {
           main: path.resolve(__dirname, 'index.html'),
-          landing: path.resolve(__dirname, 'landing-page/index.html'),
+          landing: path.resolve(__dirname, 'landing/index.html'),
         }
       }
     }

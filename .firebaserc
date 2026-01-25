@@ -3,6 +3,17 @@
     "default": "my-carwashapp-e6aba",
     "production": "my-carwashapp-e6aba"
   },
-  "targets": {},
+  "targets": {
+    "my-carwashapp-e6aba": {
+      "hosting": {
+        "app": [
+          "my-carwashapp-e6aba"
+        ],
+        "landing": [
+          "mycarwash-landing"
+        ]
+      }
+    }
+  },
   "etags": {}
 }

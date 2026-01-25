@@ -1,7 +1,8 @@
 import { db } from '../firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, setDoc, Timestamp, arrayUnion, arrayRemove, getDoc, query, where, getDocs, runTransaction } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, setDoc, Timestamp, arrayUnion, arrayRemove, getDoc, query, where, getDocs, runTransaction, writeBatch } from 'firebase/firestore';
 import { Order, ServicePackage, ServiceAddon, TeamMember, ClientUser, Notification, NotificationType, Message, Discount, Deduction, Bonus, WasherPayment, IssueReport, PayrollPeriod, ServiceArea } from '../types';
 import { calculateOrderFinancials } from '../utils/financialCalculations';
+import { StripeService } from '../services/StripeService';
 
 export const useFirestoreActions = () => {
 
@@ -184,6 +185,20 @@ export const useFirestoreActions = () => {
             };
 
             await updateOrder(orderId, updateData);
+            console.log('✅ Firestore order updated with rating/tip');
+
+            // 1b. CHARGE TIP VIA STRIPE IF APPLICABLE
+            if (ratingData.tip > 0 && orderData.paymentMethod === 'stripe' && orderData.stripePaymentMethodId) {
+                try {
+                    console.log(`💳 Charging tip of $${ratingData.tip} to card ${orderData.stripePaymentMethodId}...`);
+                    await StripeService.createPayment(ratingData.tip, orderData.stripePaymentMethodId, orderId);
+                    console.log('✅ Stripe tip payment successful');
+                } catch (stripeErr) {
+                    console.error('❌ Failed to charge tip on Stripe:', stripeErr);
+                    // We don't throw here to avoid failing the whole rating process, 
+                    // but we should probably mark it somehow.
+                }
+            }
 
             // 2. Aggregate Ratings for Washer
             if (ratingData.washerId) {
@@ -747,6 +762,28 @@ export const useFirestoreActions = () => {
         }
     };
 
+    const markMessagesAsRead = async (orderId: string, userId: string) => {
+        try {
+            const q = query(
+                collection(db, 'messages'),
+                where('orderId', '==', orderId),
+                where('receiverId', '==', userId),
+                where('read', '==', false)
+            );
+
+            const snapshot = await getDocs(q);
+            const batch = writeBatch(db);
+
+            snapshot.docs.forEach(doc => {
+                batch.update(doc.ref, { read: true });
+            });
+
+            await batch.commit();
+        } catch (error) {
+            console.error("Error marking messages as read:", error);
+        }
+    };
+
     // --- NOTIFICATIONS ---
     const addNotification = async (userId: string, title: string, message: string, type: NotificationType = 'info', linkTo?: any, relatedId?: string) => {
         try {
@@ -796,7 +833,7 @@ export const useFirestoreActions = () => {
         createPayment,
         createPayrollPeriod, updatePayrollPeriod,
         createIssue, updateIssue,
-        sendMessage,
+        sendMessage, markMessagesAsRead,
         addNotification, markNotificationRead,
         submitOrderRating,
         testPushNotification,

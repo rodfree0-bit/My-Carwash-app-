@@ -28,4 +28,4 @@ export const analytics = getAnalytics(app);
 export const messaging = getMessaging(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
-export const functions = getFunctions(app);
+export const functions = getFunctions(app, 'us-central1');

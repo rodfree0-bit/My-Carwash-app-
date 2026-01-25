@@ -101,7 +101,7 @@ const AppContent: React.FC = () => {
         createDiscount, updateDiscount, deleteDiscount,
         createBonus, updateBonus, deleteBonus,
         createPayment, submitWasherApplication, approveWasherApplication, rejectWasherApplication,
-        createIssue, sendMessage, addNotification, submitOrderRating,
+        createIssue, sendMessage, markMessagesAsRead, addNotification, submitOrderRating,
         saveServiceArea, grabOrder
     } = useFirestoreActions();
 
@@ -876,7 +876,8 @@ const AppContent: React.FC = () => {
                                             notifications={notifications}
                                             addNotification={addNotification}
                                             messages={messages}
-                                            sendMessage={sendMessage}
+                                            sendMessage={sendMessage as any}
+                                            markMessagesAsRead={markMessagesAsRead}
                                             packages={packages}
                                             packagesError={packagesError || null}
                                             addons={addons}
@@ -908,7 +909,8 @@ const AppContent: React.FC = () => {
                                             notifications={notifications}
                                             addNotification={addNotification}
                                             messages={messages}
-                                            sendMessage={sendMessage}
+                                            sendMessage={sendMessage as any}
+                                            markMessagesAsRead={markMessagesAsRead}
                                             packages={packages}
                                             addons={addons}
                                             logout={handleLogout}

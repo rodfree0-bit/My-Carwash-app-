@@ -109,7 +109,14 @@ export const TrackingUI: React.FC<TrackingUIProps> = ({
                             <div className="bg-black/80 backdrop-blur-xl border border-[#3b82f6]/20 p-5 rounded-[2.5rem] shadow-2xl flex items-center gap-5">
                                 <div className="flex-1">
                                     <h3 className="text-[#3b82f6] font-black text-[10px] uppercase tracking-[0.25em]">Heading to you</h3>
-                                    <p className="text-white text-lg font-black">{activeTrackingOrder.washerName} is on his way</p>
+                                    <p className="text-white text-lg font-black">
+                                        {activeTrackingOrder.washerName} is on his way
+                                        {activeTrackingOrder.estimatedArrival && (
+                                            <span className="text-primary ml-2 animate-pulse">
+                                                ({activeTrackingOrder.estimatedArrival})
+                                            </span>
+                                        )}
+                                    </p>
                                 </div>
                             </div>
                             <div className="pointer-events-auto">
@@ -173,18 +180,30 @@ export const TrackingUI: React.FC<TrackingUIProps> = ({
                                 <div className="space-y-4">
                                     {/* Tips */}
                                     <div className="grid grid-cols-4 gap-2">
-                                        {['0%', '10%', '15%', '20%'].map((option) => {
-                                            const pct = parseInt(option);
-                                            const tipVal = Math.round((activeTrackingOrder.price || 0) * pct / 100);
+                                        {[0, 10, 15, 20].map((pct) => {
+                                            const basePrice = activeTrackingOrder.financialBreakdown?.clientTotal || activeTrackingOrder.price || 0;
+                                            const tipVal = Math.round(basePrice * pct / 100);
+                                            // Handle highlighting based on percentage to avoid conflicts with 0 values
+                                            const isSelected = pct === 0 ? currentTip === 0 : (currentTip > 0 && Math.abs(currentTip - tipVal) < 1);
+
                                             return (
-                                                <button key={option} onClick={() => setCurrentTip(tipVal)} className={`py-3 rounded-xl border ${currentTip === tipVal ? 'bg-primary text-black' : 'bg-white/5 text-white'}`}>
-                                                    <div className="text-xs">{option}</div>
-                                                    <div className="text-[9px]">${tipVal}</div>
+                                                <button
+                                                    key={pct}
+                                                    onClick={() => setCurrentTip(tipVal)}
+                                                    className={`py-3 rounded-xl border transition-all ${isSelected ? 'bg-primary border-primary text-black' : 'bg-white/5 border-white/10 text-white'}`}
+                                                >
+                                                    <div className="text-xs font-black">{pct}%</div>
+                                                    <div className="text-[10px] opacity-70">${tipVal}</div>
                                                 </button>
                                             );
                                         })}
                                     </div>
-                                    <textarea placeholder="Review..." value={clientReviewText} onChange={e => setClientReviewText(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-2xl p-4 text-white" />
+                                    <textarea
+                                        placeholder="Review..."
+                                        value={clientReviewText}
+                                        onChange={e => setClientReviewText(e.target.value)}
+                                        className="w-full bg-black/50 border border-white/10 rounded-2xl p-4 text-white focus:border-primary/50 outline-none transition-colors h-24 resize-none"
+                                    />
                                 </div>
                             )}
                         </div>

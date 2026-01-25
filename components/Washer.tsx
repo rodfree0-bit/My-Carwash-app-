@@ -31,7 +31,8 @@ interface WasherProps {
   addNotification: (userId: string, title: string, message: string, type: NotificationType, linkTo?: Screen, relatedId?: string) => void;
   logout: () => void;
   messages: Message[];
-  sendMessage: (senderId: string, receiverId: string, orderId: string, content: string, type?: 'text' | 'image') => Promise<void>;
+  sendMessage: (senderId: string, receiverId: string, orderId: string, content: string, type?: 'text' | 'image') => Promise<any>;
+  markMessagesAsRead: (orderId: string, userId: string) => Promise<void>;
   packages: ServicePackage[];
   addons: ServiceAddon[];
   openSupport?: () => void;
@@ -40,7 +41,7 @@ interface WasherProps {
   initialOrderId?: string | null;
 }
 
-const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, updateOrder, currentWasherId, currentWasher, updateWasherProfile, supportPhone, notifications, addNotification, logout, messages, sendMessage, packages, addons, openSupport, grabOrder, showToast, initialOrderId }) => {
+const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, updateOrder, currentWasherId, currentWasher, updateWasherProfile, supportPhone, notifications, addNotification, logout, messages, sendMessage, markMessagesAsRead, packages, addons, openSupport, grabOrder, showToast, initialOrderId }) => {
 
   // --- Image Compression Function ---
   // --- Image Compression Function ---
@@ -163,7 +164,6 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
   const [showNotifications, setShowNotifications] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [chatManuallyClosed, setChatManuallyClosed] = useState(false);
-  const [lastUnreadCount, setLastUnreadCount] = useState(0);
 
   // Global Fees State
   const [globalFees, setGlobalFees] = useState<{ name: string, percentage: number }[]>([]);
@@ -246,6 +246,7 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
 
   // Chat Logic for Washer
   const activeJob = orders.find(o => o.washerId === currentWasherId && ['Assigned', 'En Route', 'Arrived', 'In Progress'].includes(o.status));
+  console.log('DEBUG: activeJob', activeJob?.id, activeJob?.status);
   const activeChatMessages = activeJob ? messages.filter(m => m.orderId === activeJob.id).sort((a, b) => a.timestamp - b.timestamp) : [];
   const chatUnreadCount = activeChatMessages.filter(m => m.receiverId === currentWasherId && !m.read).length;
 
@@ -256,6 +257,15 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
 
   const unreadCount = notifications.filter(n => !n.read && n.userId === currentWasherId).length;
 
+  // Track unread count increases to reset manual close flag (using ref to avoid loops)
+  const prevUnreadCountRef = useRef(chatUnreadCount);
+  useEffect(() => {
+    if (chatUnreadCount > prevUnreadCountRef.current) {
+      setChatManuallyClosed(false);
+    }
+    prevUnreadCountRef.current = chatUnreadCount;
+  }, [chatUnreadCount]);
+
   // Auto-open chat on new message (only if not manually closed)
   useEffect(() => {
     if (chatUnreadCount > 0 && !showChat && !chatManuallyClosed) {
@@ -264,16 +274,16 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
       if (lastMsg && lastMsg.senderId !== currentWasherId) {
         setShowChat(true);
         triggerNativeHaptic();
-        // Optional: Play a sound here if not handled globally
       }
     }
+  }, [chatUnreadCount, activeChatMessages.length, showChat, chatManuallyClosed, currentWasherId]);
 
-    // Reset manual close flag when new messages arrive
-    if (chatUnreadCount > lastUnreadCount) {
-      setChatManuallyClosed(false);
+  // Mark active chat messages as read automatically
+  useEffect(() => {
+    if (showChat && activeJob && chatUnreadCount > 0) {
+      markMessagesAsRead(activeJob.id, currentWasherId);
     }
-    setLastUnreadCount(chatUnreadCount);
-  }, [chatUnreadCount, activeChatMessages, showChat, chatManuallyClosed, currentWasherId, lastUnreadCount]);
+  }, [showChat, activeJob?.id, chatUnreadCount, currentWasherId, markMessagesAsRead]);
 
   // --- LOCATION TRACKING REMOVED ---
   // Tracking is now handled globally by LocationTracker component in App.tsx
@@ -1334,6 +1344,7 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
 
                     <button
                       onClick={() => {
+                        console.log('DEBUG: Clicking Take Before Photos', selectedJob.id);
                         triggerNativeHaptic();
                         setBeforePhotos({});
                         setShowBeforePhotosModal(true);
@@ -1385,22 +1396,29 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
           {/* Professional Photo Capture for "Before" Photos */}
           {
             showBeforePhotosModal && (
-              <PhotoCapture
-                mode="before"
-                orderId={selectedJob.id}
-                onPhotosComplete={(photos) => {
-                  if (selectedJob) {
-                    updateOrder(selectedJob.id, {
-                      status: 'In Progress',
-                      photos: { ...selectedJob.photos, before: photos }
-                    });
+              <>
+                {console.log('DEBUG: Rendering PhotoCapture (before)', selectedJob.id)}
+                <PhotoCapture
+                  mode="before"
+                  orderId={selectedJob.id}
+                  onPhotosComplete={(photos) => {
+                    console.log('DEBUG: Before photos complete');
+                    if (selectedJob) {
+                      updateOrder(selectedJob.id, {
+                        status: 'In Progress',
+                        photos: { ...selectedJob.photos, before: photos }
+                      });
+                      setShowBeforePhotosModal(false);
+                      setBeforePhotos({});
+                      navigate(Screen.WASHER_JOBS);
+                    }
+                  }}
+                  onCancel={() => {
+                    console.log('DEBUG: Before photos cancelled');
                     setShowBeforePhotosModal(false);
-                    setBeforePhotos({});
-                    navigate(Screen.WASHER_JOBS);
-                  }
-                }}
-                onCancel={() => setShowBeforePhotosModal(false)}
-              />
+                  }}
+                />
+              </>
             )
           }
 
@@ -1518,8 +1536,10 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
     );
   }
 
-  // WASHER_JOB_DETAILS Screen
+  // WASHER_JOB_DETAIL Screen
   if (screen === Screen.WASHER_JOB_DETAILS && selectedJob) {
+    const isActiveJob = ['Assigned', 'En Route', 'Arrived', 'In Progress'].includes(selectedJob.status);
+
     return (
       <div className="flex flex-col h-full bg-slate-950 text-white relative z-0">
         {/* Animated Background */}
@@ -2248,7 +2268,11 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
       {activeJob && (
         <>
           <button
-            onClick={() => { setShowChat(true); setChatManuallyClosed(false); }}
+            onClick={() => {
+              console.log('DEBUG: Clicking Floating Chat Button');
+              setShowChat(true);
+              setChatManuallyClosed(false);
+            }}
             className="fixed bottom-24 right-6 w-14 h-14 bg-slate-800 border border-white/10 rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-50 backdrop-blur-md"
           >
             <span className="material-symbols-outlined text-white text-2xl">chat</span>
@@ -2401,6 +2425,7 @@ export const WasherScreens: React.FC<WasherProps> = (props) => {
         logout={props.logout}
         messages={props.messages}
         sendMessage={props.sendMessage}
+        markMessagesAsRead={props.markMessagesAsRead}
         packages={props.packages}
         addons={props.addons}
         openSupport={() => setIsSupportChatOpen(true)}

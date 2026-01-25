@@ -9,15 +9,15 @@
         "logs": "firebase functions:log"
     },
     "engines": {
-        "node": "20"
+        "node": "18"
     },
     "main": "index.js",
     "dependencies": {
         "@google/generative-ai": "^0.24.1",
         "@types/nodemailer": "^7.0.4",
         "axios": "^1.6.0",
-        "firebase-admin": "^13.6.0",
-        "firebase-functions": "^7.0.3",
+        "firebase-admin": "^12.7.0",
+        "firebase-functions": "^6.6.0",
         "nodemailer": "^7.0.12",
         "stripe": "^17.7.0"
     },

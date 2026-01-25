@@ -123,12 +123,14 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onPhotosComplete, on
                 const isCapacitor = !!(window as any).Capacitor;
                 if (isCapacitor) {
                     const platform = (window as any).Capacitor?.getPlatform?.();
+                    console.log('DEBUG: PhotoCapture Platform Detection (Capacitor):', platform);
                     setIsWeb(platform === 'web');
                 } else {
+                    console.log('DEBUG: PhotoCapture Platform Detection: No Capacitor found, assuming web');
                     setIsWeb(true); // No Capacitor = web
                 }
             } catch (error) {
-                console.log('Platform detection defaulting to web:', error);
+                console.log('DEBUG: Platform detection defaulting to web:', error);
                 setIsWeb(true); // Default to web on error
             }
         };
@@ -140,10 +142,13 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onPhotosComplete, on
 
         // On web platform, use file input instead of Capacitor Camera
         if (isWeb) {
+            console.log('DEBUG: handleCapture Web mode for key:', key);
             if (fileInputRef.current) {
+                console.log('DEBUG: Triggering click on file input');
                 fileInputRef.current.accept = 'image/*';
-                fileInputRef.current.setAttribute('capture', 'environment');
                 fileInputRef.current.click();
+            } else {
+                console.log('DEBUG ERROR: fileInputRef.current is null!');
             }
             return;
         }
@@ -194,40 +199,38 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onPhotosComplete, on
         if (!file) return;
 
         try {
-            // Compress image
+            // Compress image using canvas
             const compressedDataUrl = await new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
 
-                        // Calculate new dimensions (max 800px)
-                        let width = img.width;
-                        let height = img.height;
-                        const maxSize = 800;
+                    let width = img.width;
+                    let height = img.height;
+                    const maxSize = 800;
 
-                        if (width > height && width > maxSize) {
-                            height = (height * maxSize) / width;
-                            width = maxSize;
-                        } else if (height > maxSize) {
-                            width = (width * maxSize) / height;
-                            height = maxSize;
-                        }
+                    if (width > height && width > maxSize) {
+                        height = (height * maxSize) / width;
+                        width = maxSize;
+                    } else if (height > maxSize) {
+                        width = (width * maxSize) / height;
+                        height = maxSize;
+                    }
 
-                        canvas.width = width;
-                        canvas.height = height;
-                        ctx?.drawImage(img, 0, 0, width, height);
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx?.drawImage(img, 0, 0, width, height);
 
-                        // Compress to JPEG 40% quality (smaller files)
-                        resolve(canvas.toDataURL('image/jpeg', 0.4));
-                    };
-                    img.onerror = reject;
-                    img.src = e.target?.result as string;
+                    const result = canvas.toDataURL('image/jpeg', 0.5);
+                    URL.revokeObjectURL(img.src);
+                    resolve(result);
                 };
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
+                img.onerror = (err) => {
+                    console.error('Image load error:', err);
+                    reject(new Error('Failed to load image for compression'));
+                };
+                img.src = URL.createObjectURL(file);
             });
 
             // Upload to Firebase Storage
@@ -375,6 +378,14 @@ export const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onPhotosComplete, on
                 </button>
             </div>
 
+            {/* Hidden File Input for Web */}
+            <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
+                accept="image/*"
+            />
         </div>
     );
 };

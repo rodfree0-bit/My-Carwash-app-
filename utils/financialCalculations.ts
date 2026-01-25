@@ -103,6 +103,6 @@ export const calculateOrderFinancials = (
         washerGrossEarnings,
         appRevenue,
         globalFeesSnapshot: globalFees,
-        discountCodeSnapshot: order.discountCode
+        discountCodeSnapshot: order.discountCode || null
     };
 };

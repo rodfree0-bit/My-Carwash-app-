@@ -189,7 +189,8 @@ export interface Order {
   review?: string; // Washer review (for analytics feedback)
   receiptUrl?: string; // URL to generated receipt (PDF or HTML)
   receiptSentAt?: number; // Timestamp when receipt was emailed
-  paymentMethod?: 'card' | 'apple_pay' | 'google_pay' | 'cash_app' | { last4: string; brand: string } | null; // Payment method used
+  paymentMethod?: 'stripe' | 'card' | 'apple_pay' | 'google_pay' | 'cash_app' | { last4: string; brand: string } | null; // Payment method used
+  stripePaymentMethodId?: string; // ID of the Stripe PaymentMethod used
   authorizedAmount?: number; // Amount authorized (hold)
   capturedAmount?: number; // Amount actually charged (base + tip)
   refundAmount?: number; // Amount refunded

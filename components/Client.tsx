@@ -52,7 +52,8 @@ interface ClientProps {
   notifications: Notification[];
   addNotification: (userId: string, title: string, message: string, type: NotificationType, linkTo?: Screen, relatedId?: string) => void;
   messages: Message[];
-  sendMessage: (senderId: string, receiverId: string, orderId: string, content: string, type?: 'text' | 'image') => Promise<void>;
+  sendMessage: (senderId: string, receiverId: string, orderId: string, content: string, type?: 'text' | 'image') => Promise<any>;
+  markMessagesAsRead: (orderId: string, userId: string) => Promise<void>;
   createIssue: (issueData: Omit<IssueReport, 'id' | 'timestamp' | 'status'>) => void;
   updateProfile: (updates: any) => Promise<void>;
   logout: () => void;
@@ -63,7 +64,12 @@ interface ClientProps {
   targetOrderId?: string | null;
 }
 
-const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, packages, packagesError, addons, team, vehicleTypes, createOrder, updateOrder, cancelOrder, newOrderDraft, setNewOrderDraft, notifications, addNotification, messages, sendMessage, createIssue, updateProfile, logout, submitOrderRating, serviceArea, globalFees, discounts, targetOrderId }) => {
+const ClientContent: React.FC<ClientProps> = ({
+  screen, navigate, orders, user, packages, packagesError, addons, team, vehicleTypes,
+  createOrder, updateOrder, cancelOrder, newOrderDraft, setNewOrderDraft,
+  notifications, addNotification, messages, sendMessage, markMessagesAsRead, createIssue, updateProfile, logout,
+  submitOrderRating, serviceArea, globalFees, discounts, targetOrderId
+}) => {
 
   // --- DEEP LINKING LOGIC ---
   const [orderToView, setOrderToView] = useState<Order | null>(null);
@@ -389,6 +395,7 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showOrderChat, setShowOrderChat] = useState(false);
+  const [chatManuallyClosed, setChatManuallyClosed] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [showSupportChat, setShowSupportChat] = useState(false);
   const [isProcessingOrder, setIsProcessingOrder] = useState(false);
@@ -421,33 +428,53 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
     }
   }, [orders, optimisticOrders]);
 
-  // Auto-open Chat Logic for Client & Message Toasts
+  // Calculate unread messages count for the client
+  const messageUnreadCount = messages.filter(m => m.receiverId === user.id && !m.read).length;
+
+  // Reset manually closed flag ONLY if a new message arrives (using ref to avoid loops)
+  const prevClientUnreadCountRef = useRef(messageUnreadCount);
+  useEffect(() => {
+    if (messageUnreadCount > prevClientUnreadCountRef.current) {
+      setChatManuallyClosed(false);
+    }
+    prevClientUnreadCountRef.current = messageUnreadCount;
+  }, [messageUnreadCount]);
+
+  // Consolidated Auto-open Chat Logic for Client
   useEffect(() => {
     if (messages.length === 0) return;
 
-    const lastMsg = messages[messages.length - 1];
+    // Auto-open if there are unread messages, chat is not manually closed, and not already open
+    if (messageUnreadCount > 0 && !showOrderChat && !chatManuallyClosed) {
+      // Find the most recent unread message to identify the order
+      const lastUnread = [...messages].reverse().find(m => m.receiverId === user.id && !m.read);
 
-    // Only act on messages received by the current user that are UNREAD
-    if (lastMsg.receiverId === user.id && !lastMsg.read) {
-      const isRelatedToActiveOrder = orders.some(o =>
-        o.id === lastMsg.orderId &&
-        ['Assigned', 'En Route', 'Arrived', 'In Progress'].includes(o.status)
-      );
-
-      if (isRelatedToActiveOrder) {
-        console.log("📨 New message received for active order");
-
-        // 1. Show Toast if chat is not already open
-        if (!showOrderChat) {
-          showNativeToast(`New message: ${lastMsg.content.substring(0, 30)}${lastMsg.content.length > 30 ? '...' : ''}`);
-
-          // 2. Auto-open chat
+      if (lastUnread) {
+        const order = orders.find(o => o.id === lastUnread.orderId);
+        // Only auto-open for active orders
+        if (order && ['Assigned', 'En Route', 'Arrived', 'In Progress'].includes(order.status)) {
+          console.log("📨 Auto-opening chat for order:", order.id);
+          setViewingOrder(order);
           setShowOrderChat(true);
           triggerNativeHaptic();
         }
       }
     }
-  }, [messages, orders, user.id, showOrderChat]);
+  }, [showOrderChat, chatManuallyClosed, user.id, orders, messageUnreadCount, messages.length]);
+
+  // Mark messages as read when chat is open
+  useEffect(() => {
+    // Find the order currently being viewed in chat
+    const activeOrderInChat = orders.find(o => o.id === viewingOrder?.id);
+    // Count unread messages for this specific order and current user
+    const chatUnreadCount = activeOrderInChat
+      ? messages.filter(m => m.orderId === activeOrderInChat.id && m.receiverId === user.id && !m.read).length
+      : 0;
+
+    if (showOrderChat && activeOrderInChat && chatUnreadCount > 0) {
+      markMessagesAsRead(activeOrderInChat.id, user.id);
+    }
+  }, [showOrderChat, viewingOrder?.id, messages, user.id, markMessagesAsRead, orders]);
 
   const handleEditVehicle = (vehicle: SavedVehicle) => {
     setEditingVehicle(vehicle);
@@ -890,7 +917,12 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
       const stripeCards = await StripeService.listPaymentMethods();
       setCards(stripeCards);
     } catch (error) {
-      console.error('Error fetching Stripe cards:', error);
+      console.error('🔴 Client.fetchCards error details:', {
+        code: (error as any).code,
+        message: (error as any).message,
+        details: (error as any).details,
+        error
+      });
       // showToast('Failed to load saved cards', 'error');
     }
   };
@@ -1250,18 +1282,21 @@ const ClientContent: React.FC<ClientProps> = ({ screen, navigate, orders, user, 
       {/* Notifications Modal */}
       {showNotifications && <NotificationList />}
 
-      {/* Chat Modal */}
-      {showChat && activeOrder && (
+      {/* Chat Modal for specific order */}
+      {showOrderChat && viewingOrder && (
         <OrderChat
-          orderId={activeOrder.id}
+          orderId={viewingOrder.id}
           currentUserId={user.id}
           currentUserName={user.name}
-          otherUserId={activeOrder.washerId!}
-          otherUserName={activeOrder.washerName || 'Washer'}
+          otherUserId={viewingOrder.washerId!}
+          otherUserName={viewingOrder.washerName || 'Washer'}
           messages={messages}
-          sendMessage={sendMessage}
-          isOpen={showChat}
-          onClose={() => setShowChat(false)}
+          sendMessage={sendMessage as any}
+          isOpen={showOrderChat}
+          onClose={() => {
+            setShowOrderChat(false);
+            setChatManuallyClosed(true);
+          }}
         />
       )}
 
