@@ -65,76 +65,119 @@ exports.onNewOrderCreated = functions.region('us-central1').firestore.document('
 });
 
 
-exports.createStripeSetupIntent = functions.region('us-central1').https.onCall(async (data, context) => {
-    console.log("💳 createStripeSetupIntent called", { uid: context.auth?.uid });
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
-    }
+const cors = require('cors')({ origin: true });
 
-    try {
+// Helper to wrap onRequest as onCall-compatible with CORS
+const handleSecureRequest = (handler) => (req, res) => {
+    cors(req, res, async () => {
+        if (req.method === 'OPTIONS') {
+            res.set('Access-Control-Allow-Origin', '*');
+            res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+            res.status(204).send('');
+            return;
+        }
+
+        try {
+            const authHeader = req.headers.authorization;
+            if (!authHeader || !authHeader.startsWith('Bearer ')) {
+                return res.status(401).send({ error: 'Unauthenticated' });
+            }
+            const idToken = authHeader.split('Bearer ')[1];
+            const decodedToken = await admin.auth().verifyIdToken(idToken);
+
+            // onCall passes data as first arg and context as second
+            const result = await handler(req.body.data || req.body, {
+                auth: { uid: decodedToken.uid, token: decodedToken }
+            });
+
+            res.status(200).send({ data: result });
+        } catch (error) {
+            console.error('Secure Request Error:', error);
+            res.status(500).send({ error: error.message });
+        }
+    });
+};
+
+exports.createStripeSetupIntent = functions.region('us-central1').https.onRequest(
+    handleSecureRequest(async (data, context) => {
+        console.log("💳 createStripeSetupIntent called", { uid: context.auth?.uid });
         const stripeCustomerId = await getOrCreateStripeCustomer(context.auth.uid, context.auth.token.email, 'Client');
         const setupIntent = await stripe.setupIntents.create({
             customer: stripeCustomerId,
             payment_method_types: ['card'],
         });
         return { clientSecret: setupIntent.client_secret };
-    } catch (error) {
-        console.error('Stripe SetupIntent Error:', error);
-        throw new functions.https.HttpsError('internal', error.message);
-    }
-});
+    })
+);
 
-exports.listStripePaymentMethods = functions.region('us-central1').https.onCall(async (data, context) => {
-    console.log("💳 listStripePaymentMethods called", { uid: context.auth?.uid });
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
-    }
-
-    try {
-        const userDoc = await db.collection('users').doc(context.auth.uid).get();
-        const stripeCustomerId = userDoc.data()?.stripeCustomerId;
-
-        if (!stripeCustomerId) {
-            return { paymentMethods: [] };
+exports.listStripePaymentMethods = functions.region('us-central1').https.onRequest((req, res) => {
+    cors(req, res, async () => {
+        // Handle Preflight
+        if (req.method === 'OPTIONS') {
+            res.set('Access-Control-Allow-Origin', '*');
+            res.set('Access-Control-Allow-Methods', 'GET, POST');
+            res.status(204).send('');
+            return;
         }
 
-        const paymentMethods = await stripe.paymentMethods.list({
-            customer: stripeCustomerId,
-            type: 'card',
-        });
+        try {
+            // Verify Auth Manually for onRequest
+            const authHeader = req.headers.authorization;
+            if (!authHeader || !authHeader.startsWith('Bearer ')) {
+                res.status(401).send({ error: 'Unauthenticated' });
+                return;
+            }
+            const idToken = authHeader.split('Bearer ')[1];
+            const decodedToken = await admin.auth().verifyIdToken(idToken);
+            const uid = decodedToken.uid;
 
-        const formattedMethods = paymentMethods.data.map(pm => ({
-            id: pm.id,
-            brand: pm.card.brand,
-            last4: pm.card.last4,
-            expiry: `${pm.card.exp_month}/${pm.card.exp_year.toString().slice(-2)}`,
-            isDefault: false
-        }));
+            console.log("💳 listStripePaymentMethods called", { uid });
 
-        return { paymentMethods: formattedMethods };
-    } catch (error) {
-        console.error('Stripe List Methods Error:', error);
-        throw new functions.https.HttpsError('internal', error.message);
-    }
+            const userDoc = await db.collection('users').doc(uid).get();
+            const stripeCustomerId = userDoc.data()?.stripeCustomerId;
+
+            if (!stripeCustomerId) {
+                res.status(200).send({ data: { paymentMethods: [] } }); // onRequest wraps in data
+                return;
+            }
+
+            const paymentMethods = await stripe.paymentMethods.list({
+                customer: stripeCustomerId,
+                type: 'card',
+            });
+
+            const formattedMethods = paymentMethods.data.map(pm => ({
+                id: pm.id,
+                brand: pm.card.brand,
+                last4: pm.card.last4,
+                expiry: `${pm.card.exp_month}/${pm.card.exp_year.toString().slice(-2)}`,
+                isDefault: false
+            }));
+
+            // Return in "data" wrapper for onCall client compatibility
+            res.status(200).send({ data: { paymentMethods: formattedMethods } });
+
+        } catch (error) {
+            console.error('Stripe List Methods Error:', error);
+            res.status(500).send({ error: { message: error.message, status: 'INTERNAL' } });
+        }
+    });
 });
 
-exports.deleteStripePaymentMethod = functions.region('us-central1').https.onCall(async (data, context) => {
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Auth required');
-    const { paymentMethodId } = data;
-    try {
+exports.deleteStripePaymentMethod = functions.region('us-central1').https.onRequest(
+    handleSecureRequest(async (data, context) => {
+        const { paymentMethodId } = data;
         await stripe.paymentMethods.detach(paymentMethodId);
         return { success: true };
-    } catch (error) {
-        throw new functions.https.HttpsError('internal', error.message);
-    }
-});
+    })
+);
 
-exports.createStripePayment = functions.region('us-central1').https.onCall(async (data, context) => {
-    console.log("💳 createStripePayment called", { uid: context.auth?.uid });
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Auth required');
-    const { amount, paymentMethodId, orderId } = data;
+exports.createStripePayment = functions.region('us-central1').https.onRequest(
+    handleSecureRequest(async (data, context) => {
+        console.log("💳 createStripePayment called", { uid: context.auth?.uid });
+        const { amount, paymentMethodId, orderId } = data;
 
-    try {
         const stripeCustomerId = await getOrCreateStripeCustomer(context.auth.uid, context.auth.token.email, 'Client');
         const paymentIntent = await stripe.paymentIntents.create({
             amount: Math.round(amount * 100),
@@ -155,15 +198,57 @@ exports.createStripePayment = functions.region('us-central1').https.onCall(async
         });
 
         return { success: true, paymentId: paymentIntent.id, status: paymentIntent.status };
-    } catch (error) {
-        console.error('Stripe Payment Error:', error);
-        throw new functions.https.HttpsError('internal', error.message);
-    }
-});
+    })
+);
 
-exports.calculateRouteETA = functions.region('us-central1').https.onCall(async (data, context) => {
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Auth required');
-    const { originLat, originLon, destLat, destLon } = data;
-    // Mock for now to test deployment, or use real logic if simpler
-    return { duration: 15, distance: 5.5, status: 'OK' };
-});
+exports.calculateRouteETA = functions.region('us-central1').https.onRequest(
+    handleSecureRequest(async (data, context) => {
+        const { originLat, originLon, destLat, destLon } = data;
+        return { duration: 15, distance: 5.5, status: 'OK' };
+    })
+);
+
+exports.updateWasherRating = functions.region('us-central1').https.onRequest(
+    handleSecureRequest(async (data, context) => {
+        const { washerId, newRating } = data;
+        console.log(`⭐ Updating washer rating for ${washerId}: ${newRating}`);
+
+        try {
+            const q = query(
+                collection(db, 'orders'),
+                where('washerId', '==', washerId),
+                where('status', '==', 'Completed')
+            );
+
+            const snapshot = await getDocs(q);
+            let totalRating = 0;
+            let count = 0;
+
+            snapshot.forEach(doc => {
+                const orderData = doc.data();
+                if (orderData.rating) {
+                    totalRating += orderData.rating;
+                    count++;
+                }
+            });
+
+            // If we have no ratings yet, use the new one
+            const average = count > 0 ? totalRating / count : newRating;
+
+            const oneHourInMs = 60 * 60 * 1000;
+            const nextAvailableTime = admin.firestore.Timestamp.fromMillis(Date.now() + oneHourInMs);
+
+            await db.collection('users').doc(washerId).update({
+                rating: parseFloat(average.toFixed(1)),
+                status: 'Available',
+                nextAvailableTime: nextAvailableTime,
+                completedJobs: count
+            });
+
+            return { success: true, averageRating: average, completedJobs: count };
+        } catch (error) {
+            console.error('Update Washer Rating Error:', error);
+            throw new Error(error.message);
+        }
+    })
+);

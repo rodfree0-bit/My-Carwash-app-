@@ -41,8 +41,8 @@ export const VehicleSelectionScreen: React.FC<VehicleSelectionScreenProps> = ({
         }
 
         // Initialize vehicle configs
-        const configs = tempSelectedVehicles.map(vehicleId => {
-            const vehicle = vehicles.find(v => v.id === vehicleId);
+        const configs = (tempSelectedVehicles || []).map(vehicleId => {
+            const vehicle = (vehicles || []).find(v => v.id === vehicleId);
             return {
                 vehicleId,
                 vehicleModel: vehicle?.model || '',
@@ -70,7 +70,7 @@ export const VehicleSelectionScreen: React.FC<VehicleSelectionScreenProps> = ({
             <div className="flex-1 overflow-y-auto p-4 pb-32">
                 <p className="text-slate-400 text-sm mb-6">Choose one or more vehicles to wash</p>
 
-                {vehicles.length === 0 ? (
+                {(vehicles || []).length === 0 ? (
                     <div className="text-center py-12">
                         <span className="material-symbols-outlined text-6xl text-slate-600 mb-4">directions_car</span>
                         <p className="text-slate-400 mb-6">No vehicles saved yet</p>
@@ -83,7 +83,7 @@ export const VehicleSelectionScreen: React.FC<VehicleSelectionScreenProps> = ({
                     </div>
                 ) : (
                     <div className="space-y-3">
-                        {vehicles.map(vehicle => {
+                        {(vehicles || []).map(vehicle => {
                             const isSelected = tempSelectedVehicles.includes(vehicle.id);
                             return (
                                 <div key={vehicle.id} className="relative group">
@@ -143,11 +143,11 @@ export const VehicleSelectionScreen: React.FC<VehicleSelectionScreenProps> = ({
             <div className="fixed bottom-0 left-0 right-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-background-dark via-background-dark to-transparent z-10">
                 <button
                     onClick={handleContinue}
-                    disabled={tempSelectedVehicles.length === 0}
+                    disabled={(tempSelectedVehicles || []).length === 0}
                     style={{ backgroundColor: '#3b82f6' }}
                     className="w-full h-14 rounded-xl font-bold text-lg hover:brightness-90 transition-all text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-blue"
                 >
-                    Continue ({tempSelectedVehicles.length} vehicle{tempSelectedVehicles.length !== 1 ? 's' : ''})
+                    Continue ({(tempSelectedVehicles || []).length} vehicle{(tempSelectedVehicles || []).length !== 1 ? 's' : ''})
                 </button>
             </div>
         </div>

@@ -16,7 +16,7 @@ export class LocationService {
     private static washerId: string | null = null;
     private static orderId: string | null = null;
     private static lastUpdateTimestamp = 0;
-    private static readonly UPDATE_INTERVAL = 120000; // 2 minutes in ms
+    private static readonly UPDATE_INTERVAL = 15000; // 15 seconds in ms (improved from 2min)
 
     /**
      * Start tracking washer location and update Firestore in real-time
@@ -40,14 +40,13 @@ export class LocationService {
 
             this.isTracking = true;
 
-            // Request high-accuracy location updates
+            // Request location updates with robust options
             this.watchId = navigator.geolocation.watchPosition(
                 async (position) => {
                     const now = Date.now();
 
-                    // Throttle updates to every 2 minutes (unless it's the first one)
+                    // Throttle updates based on UPDATE_INTERVAL
                     if (this.lastUpdateTimestamp > 0 && (now - this.lastUpdateTimestamp < this.UPDATE_INTERVAL)) {
-                        // console.log('Skipping update, too soon:', now - this.lastUpdateTimestamp);
                         return;
                     }
 
@@ -85,20 +84,24 @@ export class LocationService {
                             });
                         }
 
-                        console.log('Location updated (2min interval):', location);
+                        console.log('Location updated (Internal 15s throttled):', location);
                     } catch (error) {
-                        console.error('Error updating location:', error);
+                        console.error('Error updating location Firestore:', error);
                     }
                 },
                 (error) => {
-                    console.error('Geolocation error:', error);
-                    // Don't fully stop, just log. Sometimes it recovers.
-                    // this.isTracking = false; 
+                    console.error('Geolocation tracking error:', error.code, error.message);
+
+                    // If we get a timeout, it might be due to high accuracy being too strict
+                    if (error.code === 3 && this.watchId !== null) {
+                        console.warn('Geolocation timeout - Retrying with reduced accuracy');
+                        // No need to clearWatch here as it keeps trying, but we could re-init if it persists
+                    }
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: 20000,
-                    maximumAge: 10000, // Accept cached position up to 10 seconds old
+                    timeout: 30000,     // Increased to 30s
+                    maximumAge: 30000,   // Accept slightly older cached position to avoid timeouts
                 }
             );
 

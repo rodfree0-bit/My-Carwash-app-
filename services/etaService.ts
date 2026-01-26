@@ -140,7 +140,7 @@ export const etaService = new ETAService();
 export const useRealTimeETA = (
     washerLocation: { lat: number; lng: number } | null,
     clientLocation: { lat: number; lng: number } | null,
-    updateInterval = 5000 // 5 seconds
+    updateInterval = 15000 // 15 seconds (matching LocationService)
 ) => {
     const [eta, setETA] = React.useState<RouteInfo | null>(null);
     const [isLoading, setIsLoading] = React.useState(false);

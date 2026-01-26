@@ -149,6 +149,11 @@ export const useFirestoreData = (user?: any, role?: string) => {
             return getVal(b) - getVal(a);
         };
 
+        if (!q) {
+            setLoading(false);
+            return;
+        }
+
         const unsub = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
             setOrders(data);

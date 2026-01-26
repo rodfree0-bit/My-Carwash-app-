@@ -28,4 +28,5 @@ export const analytics = getAnalytics(app);
 export const messaging = getMessaging(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
+console.log("🔥 Initializing Firebase Functions in region: us-central1");
 export const functions = getFunctions(app, 'us-central1');

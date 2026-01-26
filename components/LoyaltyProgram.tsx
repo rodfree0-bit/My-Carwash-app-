@@ -267,7 +267,7 @@ export const LoyaltyProgram: React.FC<LoyaltyProgramProps> = ({ userId }) => {
             </div>
 
             {/* Mis Cupones */}
-            {userCoupons.length > 0 && (
+            {(userCoupons || []).length > 0 && (
                 <div className="bg-white/5 border border-white/10 rounded-xl p-6">
                     <h3 className="font-bold text-lg mb-4 text-primary">{i18n.t('loyalty_my_coupons')}</h3>
                     <div className="space-y-3">

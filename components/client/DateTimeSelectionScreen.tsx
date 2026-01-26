@@ -1,13 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Screen, Order, TeamMember, ToastType } from '../../types';
 
 interface DateTimeSelectionScreenProps {
-    selectedOption: 'asap' | 'scheduled';
-    setSelectedOption: (option: 'asap' | 'scheduled') => void;
     selectedDate: string;
     setSelectedDate: (date: string) => void;
     selectedTime: string;
     setSelectedTime: (time: string) => void;
+    selectedOption: 'asap' | 'scheduled';
+    setSelectedOption: (option: 'asap' | 'scheduled') => void;
     orders: Order[];
     team: TeamMember[];
     navigate: (screen: Screen) => void;
@@ -15,12 +15,12 @@ interface DateTimeSelectionScreenProps {
 }
 
 export const DateTimeSelectionScreen: React.FC<DateTimeSelectionScreenProps> = ({
-    selectedOption,
-    setSelectedOption,
     selectedDate,
     setSelectedDate,
     selectedTime,
     setSelectedTime,
+    selectedOption,
+    setSelectedOption,
     orders,
     team,
     navigate,
@@ -28,6 +28,12 @@ export const DateTimeSelectionScreen: React.FC<DateTimeSelectionScreenProps> = (
 }) => {
     // Feature flag to hide/show Wash Now option
     const SHOW_WASH_NOW = true;
+
+    // Guard date parts
+    const dateParts = (selectedDate || '').split('-');
+    const sYear = parseInt(dateParts[0] || '0', 10);
+    const sMonth = parseInt(dateParts[1] || '0', 10);
+    const sDay = parseInt(dateParts[2] || '0', 10);
 
     // Generate next 14 days starting from today
     const generateDays = () => {
@@ -63,23 +69,28 @@ export const DateTimeSelectionScreen: React.FC<DateTimeSelectionScreenProps> = (
     const generateTimeSlots = () => {
         const slots = [];
         const now = new Date();
+
+        // Ensure selectedDate is valid before proceeding
+        if (!selectedDate || isNaN(sYear) || isNaN(sMonth) || isNaN(sDay)) {
+            return [];
+        }
+
         const currentHour = now.getHours();
         const currentMinute = now.getMinutes();
-        const [sYear, sMonth, sDay] = selectedDate.split('-').map(Number);
         // Create date object in local time (00:00:00)
         const selectedDateObj = new Date(sYear, sMonth - 1, sDay);
         const dayOfWeek = selectedDateObj.getDay();
 
         // Get active washers with schedules
-        const activeWashers = team.filter(w => w.role === 'washer' && w.status !== 'Blocked' && w.status !== 'Offline');
+        const activeWashers = (team || []).filter(w => w.role === 'washer' && w.status !== 'Blocked' && w.status !== 'Offline');
 
         // Collect all available time ranges from washer schedules
         const washerTimeRanges: { start: string; end: string }[] = [];
 
         activeWashers.forEach(washer => {
-            if (washer.schedule && washer.schedule.length > 0) {
+            if (washer.schedule && Array.isArray(washer.schedule) && washer.schedule.length > 0) {
                 const daySchedule = washer.schedule.find(d => d.day === dayOfWeek && d.enabled);
-                if (daySchedule && daySchedule.slots) {
+                if (daySchedule && daySchedule.slots && Array.isArray(daySchedule.slots)) {
                     washerTimeRanges.push(...daySchedule.slots);
                 }
             } else {

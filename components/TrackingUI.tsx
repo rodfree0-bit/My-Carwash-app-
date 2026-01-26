@@ -3,7 +3,7 @@ import React from 'react';
 import { Order, User, Message } from '../types';
 import { TrackingMap } from './TrackingMap';
 import { OrderChat } from './OrderChat';
-import { LoadingSpinner } from './LoadingSpinner';
+import { useRealTimeETA } from '../services/etaService';
 
 interface TrackingUIProps {
     activeTrackingOrder: Order | null;
@@ -38,10 +38,26 @@ export const TrackingUI: React.FC<TrackingUIProps> = ({
 }) => {
     // Local state for rating (lifted from Client.tsx usage)
     const [currentRating, setCurrentRating] = React.useState(0);
+    const [selectedTipPct, setSelectedTipPct] = React.useState(0);
     const [currentTip, setCurrentTip] = React.useState(0);
     const [clientReviewText, setClientReviewText] = React.useState('');
 
+    // Real-time ETA hook (NEW)
+    const { eta: liveEta, isLoading: etaLoading } = useRealTimeETA(
+        activeTrackingOrder?.washerLocation || null,
+        activeTrackingOrder?.location || null
+    );
+
+    // Update currentTip whenever selectedTipPct changes
+    React.useEffect(() => {
+        const basePrice = activeTrackingOrder?.financialBreakdown?.clientTotal || activeTrackingOrder?.price || 0;
+        const tipVal = Number((basePrice * selectedTipPct / 100).toFixed(2));
+        setCurrentTip(tipVal);
+    }, [selectedTipPct, activeTrackingOrder]);
+
     if (!activeTrackingOrder) return null;
+
+    const displayEta = liveEta?.duration || activeTrackingOrder.estimatedArrival || '...';
 
     return (
         <div className="fixed inset-0 z-50 bg-gradient-to-b from-black via-slate-950 to-black flex flex-col">
@@ -103,7 +119,7 @@ export const TrackingUI: React.FC<TrackingUIProps> = ({
                             status={activeTrackingOrder.status}
                             serviceRadius={20}
                             washerName={activeTrackingOrder.washerName || 'Your Washer'}
-                            eta={Number(activeTrackingOrder.estimatedArrival) || 10}
+                            eta={displayEta}
                         />
                         <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 pb-12">
                             <div className="bg-black/80 backdrop-blur-xl border border-[#3b82f6]/20 p-5 rounded-[2.5rem] shadow-2xl flex items-center gap-5">
@@ -111,11 +127,9 @@ export const TrackingUI: React.FC<TrackingUIProps> = ({
                                     <h3 className="text-[#3b82f6] font-black text-[10px] uppercase tracking-[0.25em]">Heading to you</h3>
                                     <p className="text-white text-lg font-black">
                                         {activeTrackingOrder.washerName} is on his way
-                                        {activeTrackingOrder.estimatedArrival && (
-                                            <span className="text-primary ml-2 animate-pulse">
-                                                ({activeTrackingOrder.estimatedArrival})
-                                            </span>
-                                        )}
+                                        <span className="text-primary ml-2 animate-pulse">
+                                            ({displayEta})
+                                        </span>
                                     </p>
                                 </div>
                             </div>
@@ -182,14 +196,13 @@ export const TrackingUI: React.FC<TrackingUIProps> = ({
                                     <div className="grid grid-cols-4 gap-2">
                                         {[0, 10, 15, 20].map((pct) => {
                                             const basePrice = activeTrackingOrder.financialBreakdown?.clientTotal || activeTrackingOrder.price || 0;
-                                            const tipVal = Math.round(basePrice * pct / 100);
-                                            // Handle highlighting based on percentage to avoid conflicts with 0 values
-                                            const isSelected = pct === 0 ? currentTip === 0 : (currentTip > 0 && Math.abs(currentTip - tipVal) < 1);
+                                            const tipVal = (basePrice * pct / 100).toFixed(2);
+                                            const isSelected = selectedTipPct === pct;
 
                                             return (
                                                 <button
                                                     key={pct}
-                                                    onClick={() => setCurrentTip(tipVal)}
+                                                    onClick={() => setSelectedTipPct(pct)}
                                                     className={`py-3 rounded-xl border transition-all ${isSelected ? 'bg-primary border-primary text-black' : 'bg-white/5 border-white/10 text-white'}`}
                                                 >
                                                     <div className="text-xs font-black">{pct}%</div>

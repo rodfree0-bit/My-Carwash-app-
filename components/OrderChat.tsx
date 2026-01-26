@@ -28,12 +28,12 @@ export const OrderChat: React.FC<OrderChatProps> = ({
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Filter messages for this order
-    const orderMessages = messages.filter(m => m.orderId === orderId);
+    const orderMessages = (messages || []).filter(m => m.orderId === orderId);
 
     // Scroll to bottom on new messages
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [orderMessages.length]);
+    }, [(orderMessages || []).length]);
 
     const handleSend = () => {
         if (!newMessage.trim()) return;

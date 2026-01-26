@@ -13,7 +13,6 @@ const getErrorMessage = (error: any): string => {
   const errorCode = error?.code || '';
   const errorMessage = error?.message || '';
 
-  // Check for common Firebase error codes
   if (errorCode.includes('invalid-credential') || errorCode.includes('wrong-password') || errorCode.includes('user-not-found')) {
     return 'Invalid email or password. Please try again.';
   }
@@ -33,12 +32,10 @@ const getErrorMessage = (error: any): string => {
     return 'Too many attempts. Please try again later.';
   }
 
-  // Check error message for Firebase-specific text
   if (errorMessage.toLowerCase().includes('firebase')) {
     return 'An error occurred. Please try again.';
   }
 
-  // Return a generic message if we can't identify the error
   return errorMessage || 'An error occurred. Please try again.';
 };
 
@@ -107,7 +104,6 @@ const LoginScreen = ({ navigate }: { navigate: (s: Screen) => void }) => {
 
     try {
       await authService.login(email, password);
-      // Firebase onAuthStateChanged in App.tsx will handle navigation
     } catch (err: any) {
       setError(getErrorMessage(err));
     } finally {
@@ -118,33 +114,24 @@ const LoginScreen = ({ navigate }: { navigate: (s: Screen) => void }) => {
   return (
     <div className="flex flex-col min-h-screen bg-background-dark p-6 overflow-y-auto">
       <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full py-8">
-        <div className="mb-8 text-center">
-          <div className="w-32 h-32 md:w-40 md:h-40 flex items-center justify-center mx-auto mb-6 overflow-hidden rounded-[2rem]">
-            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+        <div className="mb-8 text-center animate-fade-in">
+          <div className="w-24 h-24 md:w-32 md:h-32 flex items-center justify-center mx-auto mb-6">
+            <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+            </div>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">Welcome Back</h1>
+          <h1 className="text-3xl md:text-4xl font-bold mb-2 tracking-tight text-white">Welcome Back</h1>
           <p className="text-slate-400 text-base">Sign in to continue to your dashboard</p>
         </div>
 
         {error && (
-          <div className={`border rounded-xl p-4 mb-6 flex items-start gap-3 ${error.includes('sent') || error.includes('Check your email')
-            ? 'bg-green-500/10 border-green-500/20'
-            : 'bg-red-500/10 border-red-500/20'
-            }`}>
-            <span className={`material-symbols-outlined mt-0.5 text-xl ${error.includes('sent') || error.includes('Check your email')
-              ? 'text-green-500'
-              : 'text-red-500'
-              }`}>
-              {error.includes('sent') || error.includes('Check your email') ? 'check_circle' : 'error'}
-            </span>
-            <p className={`text-sm ${error.includes('sent') || error.includes('Check your email')
-              ? 'text-green-200'
-              : 'text-red-200'
-              }`}>{error}</p>
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-6 flex items-start gap-3 animate-shake">
+            <span className="material-symbols-outlined mt-0.5 text-xl text-red-500">error</span>
+            <p className="text-sm text-red-200">{error}</p>
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="animate-slide-up">
           <CustomInput
             label="Email Address"
             type="email"
@@ -173,24 +160,13 @@ const LoginScreen = ({ navigate }: { navigate: (s: Screen) => void }) => {
           </CustomButton>
         </form>
 
-        <p className="mt-8 text-center text-xs text-slate-500">
-          &copy; 2025 My Carwash App. All rights reserved.
-          <br />
-          <span className="text-primary font-bold">v5.0 - SEMI TRUCK EDITION 🚛</span>
-        </p>
-
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-center animate-fade-in" style={{ animationDelay: '0.4s' }}>
           <p className="text-slate-400 text-base">
             Don't have an account?{' '}
             <button onClick={() => navigate(Screen.REGISTER)} className="text-primary font-bold hover:underline min-h-[44px] px-2 py-2 inline-flex items-center">
               Create Account
             </button>
           </p>
-        </div>
-        <div className="mt-4 text-center">
-          <button onClick={() => navigate(Screen.WASHER_REGISTRATION)} className="text-sm text-slate-500 font-medium hover:text-white transition-colors min-h-[44px] px-4 py-2">
-            Want to work with us? <span className="underline">Join our Team</span>
-          </button>
         </div>
       </div>
       <div className="text-center pb-4">
@@ -238,8 +214,10 @@ const ForgotPasswordScreen = ({ navigate }: { navigate: (s: Screen) => void }) =
     <div className="flex flex-col min-h-screen bg-background-dark p-6 overflow-y-auto">
       <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full py-8">
         <div className="mb-8 text-center">
-          <div className="w-32 h-32 md:w-40 md:h-40 flex items-center justify-center mx-auto mb-6 overflow-hidden rounded-[2rem]">
-            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+          <div className="w-32 h-32 md:w-36 md:h-36 flex items-center justify-center mx-auto mb-6">
+            <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+            </div>
           </div>
           <h1 className="text-3xl md:text-4xl font-bold mb-2">Forgot Password?</h1>
           <p className="text-slate-400 text-base">
@@ -331,11 +309,6 @@ const RegisterScreen = ({ navigate }: { navigate: (s: Screen) => void }) => {
         address: fullAddress,
         role
       });
-
-      // Firebase will automatically authenticate the user
-      // App.tsx will detect the auth state change and navigate accordingly
-      // No need to manually navigate or show success screen
-
     } catch (err: any) {
       setError(getErrorMessage(err));
       setIsLoading(false);
@@ -347,24 +320,13 @@ const RegisterScreen = ({ navigate }: { navigate: (s: Screen) => void }) => {
       <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full">
         <div className="mb-8 text-center pt-8">
           <h1 className="text-3xl font-bold mb-2">Create Account</h1>
-          <p className="text-slate-400">Join us to get the best car wash service</p>
+          <p className="text-slate-400 text-base">Join the community today</p>
         </div>
 
         {error && (
-          <div className={`border rounded-xl p-4 mb-6 flex items-start gap-3 ${error.includes('created') || error.includes('verify')
-            ? 'bg-green-500/10 border-green-500/20'
-            : 'bg-red-500/10 border-red-500/20'
-            }`}>
-            <span className={`material-symbols-outlined mt-0.5 ${error.includes('created') || error.includes('verify')
-              ? 'text-green-500'
-              : 'text-red-500'
-              }`}>
-              {error.includes('created') || error.includes('verify') ? 'check_circle' : 'error'}
-            </span>
-            <p className={`text-sm ${error.includes('created') || error.includes('verify')
-              ? 'text-green-200'
-              : 'text-red-200'
-              }`}>{error}</p>
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-6 flex items-start gap-3">
+            <span className="material-symbols-outlined mt-0.5 text-red-500">error</span>
+            <p className="text-sm text-red-200">{error}</p>
           </div>
         )}
 
@@ -415,7 +377,6 @@ const RegisterScreen = ({ navigate }: { navigate: (s: Screen) => void }) => {
             <label className="block text-slate-400 text-sm font-bold mb-3 flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-lg">location_on</span>
               Service Address
-              <span className="text-xs text-slate-500">(To verify coverage)</span>
             </label>
 
             <div className="mb-3">
@@ -464,13 +425,6 @@ const RegisterScreen = ({ navigate }: { navigate: (s: Screen) => void }) => {
                 className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white placeholder-slate-600 focus:outline-none focus:border-primary transition-all text-sm"
               />
             </div>
-
-            {address.length > 5 && city.length > 2 && zipCode.length === 5 && (
-              <div className="mt-3 flex items-center gap-2 text-xs p-2 bg-green-500/10 rounded-lg border border-green-500/20">
-                <span className="material-symbols-outlined text-green-400 text-sm">check_circle</span>
-                <span className="text-green-400">Service available in your area!</span>
-              </div>
-            )}
           </div>
 
           <CustomInput
@@ -554,35 +508,33 @@ const RegisterScreen = ({ navigate }: { navigate: (s: Screen) => void }) => {
 // --- Onboarding Screen - Carousel with Car Wash Services ---
 const carWashSlides = [
   {
-    url: "/ceramic_coating.webp",
-    title: "Premium Ceramic Coating",
-    desc: "Professional nano-ceramic protection that shields your paint from UV rays, dirt, and scratches with a stunning mirror finish"
-  },
-  {
-    url: "/wheel_polish.webp",
+    url: "/wheel_polish.png",
     title: "Professional Wheel Detailing",
     desc: "Deep cleaning and polishing of rims, tires, and brake calipers for a showroom-quality shine"
   },
   {
-    url: "/paint_restoration.webp",
-    title: "Paint Correction & Restoration",
-    desc: "Expert buffing and polishing to remove swirl marks, scratches, and oxidation - bringing back your car's original brilliance"
+    url: "/ceramic_coating.png",
+    title: "Premium Ceramic Coating",
+    desc: "Professional nano-ceramic protection that shields your paint from UV rays, dirt, and scratches with a stunning mirror finish"
   },
   {
-    url: "/interior_detail.webp",
+    url: "/interior_detail.png",
     title: "Complete Interior Detailing",
     desc: "Deep cleaning, conditioning, and protection for seats, carpets, dashboard, and every interior surface"
+  },
+  {
+    url: "/paint_restoration.png",
+    title: "Paint Correction & Restoration",
+    desc: "Expert buffing and polishing to remove swirl marks, scratches, and oxidation - bringing back your car's original brilliance"
   }
 ];
 
-const OnboardingScreen = ({ navigate, onOpenChat }: { navigate: (s: Screen) => void, onOpenChat: () => void }) => {
+const OnboardingScreen = ({ navigate }: { navigate: (s: Screen) => void, onOpenChat: () => void }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isAutoRotating, setIsAutoRotating] = useState(true);
 
-  // Auto-rotate carousel every 4.5 seconds (only if auto-rotating is enabled)
   React.useEffect(() => {
     if (!isAutoRotating) return;
-
     const interval = setInterval(() => {
       setActiveIndex(prev => (prev + 1) % carWashSlides.length);
     }, 4500);
@@ -591,8 +543,7 @@ const OnboardingScreen = ({ navigate, onOpenChat }: { navigate: (s: Screen) => v
 
   const handleDotClick = (index: number) => {
     setActiveIndex(index);
-    setIsAutoRotating(false); // Stop auto-rotation when user manually selects
-    // Re-enable auto-rotation after 10 seconds of inactivity
+    setIsAutoRotating(false);
     setTimeout(() => setIsAutoRotating(true), 10000);
   };
 
@@ -604,99 +555,90 @@ const OnboardingScreen = ({ navigate, onOpenChat }: { navigate: (s: Screen) => v
       {carWashSlides.map((slide, index) => (
         <div
           key={index}
-          className={`absolute inset-0 z-0 bg-cover bg-center transition-opacity duration-700 pointer-events-none ${index === activeIndex ? 'opacity-100' : 'opacity-0'
+          className={`absolute inset-0 z-0 bg-cover bg-center transition-opacity duration-1000 pointer-events-none ${index === activeIndex ? 'opacity-100' : 'opacity-0'
             }`}
-          style={{ backgroundImage: `url("${slide.url}")` }}
+          style={{
+            backgroundImage: `url("${slide.url}")`,
+            animation: index === activeIndex ? 'kenburns 20s ease infinite' : 'none'
+          }}
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-background-dark z-0"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-background-dark/95 z-0"></div>
         </div>
       ))}
 
       {/* Content Container */}
       <div className="w-full max-w-md h-full flex flex-col items-center relative z-10 px-6 py-12 md:py-8 justify-between">
 
-        {/* Top Section: Small Logo + App Name */}
-        <div className="w-full flex flex-col items-center pt-2">
-          {/* Logo */}
-          <div className="w-14 h-14 md:w-20 md:h-20 flex items-center justify-center overflow-hidden rounded-2xl md:rounded-3xl shadow-2xl mb-3 ring-2 md:ring-4 ring-blue-600/40 bg-white">
-            <img src="/logo.png" alt="My Carwash app" className="w-full h-full object-contain p-1" />
+        {/* Top Section: Logo */}
+        <div className="w-full flex flex-col items-center pt-8">
+          <div className="w-20 h-20 md:w-24 md:h-24 flex items-center justify-center overflow-hidden mb-3">
+            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+          </div>
+        </div>
+
+        {/* Middle Section: Integrated Typography */}
+        <div className="flex-1 w-full flex flex-col justify-end items-center text-center px-4 pb-2">
+          <div key={activeIndex} className="animate-fade-in-up">
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-4 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-tight">
+              <span className="text-blue-400">{currentSlide.title.split(' ')[0]}</span> {currentSlide.title.split(' ').slice(1).join(' ')}
+            </h2>
+            <p className="text-base md:text-lg text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,1)] leading-relaxed max-w-sm mx-auto font-medium">
+              {currentSlide.desc}
+            </p>
           </div>
 
-          {/* App Title */}
-          <h1 className="text-xl md:text-2xl font-bold text-center tracking-tight text-white/80 drop-shadow-2xl">
-            My Carwash app
-          </h1>
+          {/* Navigation Dots */}
+          <div className="flex gap-2 mt-6">
+            {carWashSlides.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => handleDotClick(index)}
+                className={`transition-all duration-300 rounded-full ${index === activeIndex
+                  ? 'w-10 h-1.5 bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.6)]'
+                  : 'w-1.5 h-1.5 bg-white/30 hover:bg-white/50'
+                  }`}
+              />
+            ))}
+          </div>
         </div>
 
-        {/* Middle Section: Prominent Service Information (Takes ~50% of height) */}
-        <div className="flex-1 w-full flex flex-col justify-center items-center text-center px-2">
-          <p className="text-3xl md:text-4xl font-black text-blue-400 drop-shadow-lg mb-6 transition-all duration-500 leading-tight">
-            {currentSlide.title}
-          </p>
-          <p className="text-lg md:text-2xl text-white drop-shadow-lg leading-relaxed max-w-sm mx-auto transition-all duration-500 opacity-95 font-medium">
-            {currentSlide.desc}
-          </p>
-        </div>
-
-        {/* Bottom Section: Buttons */}
+        {/* Bottom Section: Action Buttons */}
         <div className="w-full flex flex-col items-center">
-          {/* Action Buttons */}
-          <div className="flex flex-col gap-3 w-full">
+          <div className="flex flex-col gap-4 w-full mb-6">
             <button
               onClick={() => navigate(Screen.REGISTER)}
-              className="w-full h-14 bg-blue-600 hover:bg-blue-700 rounded-2xl text-white font-bold text-lg transition-all shadow-xl shadow-blue-600/30 active:scale-[0.98] flex items-center justify-center"
+              className="w-full h-16 bg-blue-600 hover:bg-blue-700 rounded-2xl text-white font-bold text-xl transition-all shadow-xl active:scale-[0.98] flex items-center justify-center"
             >
               Create Account
             </button>
             <button
               onClick={() => navigate(Screen.LOGIN)}
-              className="w-full h-14 bg-slate-800/60 hover:bg-slate-700/60 rounded-2xl text-white font-semibold text-lg transition-all backdrop-blur-md border border-white/5 active:scale-[0.98] flex items-center justify-center"
+              className="w-full h-16 bg-white/5 hover:bg-white/10 rounded-2xl text-white font-bold text-xl transition-all border border-white/10 active:scale-[0.98] flex items-center justify-center backdrop-blur-sm"
             >
               I have an account
             </button>
-            <button onClick={() => navigate(Screen.WASHER_REGISTRATION)} className="text-sm text-slate-400 font-medium py-3 hover:text-white transition-colors">
-              Looking for work? <span className="text-blue-400 underline">Join our Team</span>
-            </button>
           </div>
+          <button onClick={() => navigate(Screen.WASHER_REGISTRATION)} className="text-sm font-medium text-white/60 py-2 hover:text-white transition-colors">
+            Looking for work? <span className="text-blue-400 underline ml-1">Join our Team</span>
+          </button>
         </div>
       </div>
-
     </div>
   );
 };
 
 export const AuthScreens: React.FC<AuthProps> = ({ screen, navigate }) => {
   if (screen === Screen.ONBOARDING) {
-    return (
-      <>
-        <OnboardingScreen navigate={navigate} onOpenChat={() => { }} />
-      </>
-    );
+    return <OnboardingScreen navigate={navigate} onOpenChat={() => { }} />;
   }
-
   if (screen === Screen.LOGIN) {
-    return (
-      <>
-        <LoginScreen navigate={navigate} />
-      </>
-    );
+    return <LoginScreen navigate={navigate} />;
   }
-
   if (screen === Screen.REGISTER) {
-    return (
-      <>
-        <RegisterScreen navigate={navigate} />
-      </>
-    );
+    return <RegisterScreen navigate={navigate} />;
   }
-
   if (screen === Screen.RECOVER_PASSWORD) {
-    return (
-      <>
-        <ForgotPasswordScreen navigate={navigate} />
-      </>
-    );
+    return <ForgotPasswordScreen navigate={navigate} />;
   }
-
   return null;
 };

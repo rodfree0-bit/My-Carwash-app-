@@ -509,31 +509,12 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
             <button
               onClick={() => {
                 triggerNativeHaptic();
-                if (timeLeft <= 0) {
-                  // Unlock manually if time expired
-                  navigate(Screen.WASHER_JOBS);
-                } else {
-                  // Just refresh state
-                  // Maybe show toast "Still waiting..."
-                }
+                navigate(Screen.WASHER_JOBS);
               }}
-              disabled={timeLeft > 0}
-              className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${timeLeft <= 0
-                ? 'bg-white text-black hover:bg-slate-200 shadow-lg shadow-white/10'
-                : 'bg-surface-dark text-slate-500 border border-white/5 cursor-not-allowed'
-                }`}
+              className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all bg-white text-black hover:bg-slate-200 shadow-lg shadow-white/10"
             >
-              {timeLeft <= 0 ? (
-                <>
-                  <span>Continue</span>
-                  <span className="material-symbols-outlined">arrow_forward</span>
-                </>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined animate-spin">sync</span>
-                  <span>Waiting for Confirmation...</span>
-                </>
-              )}
+              <span>Continue</span>
+              <span className="material-symbols-outlined">arrow_forward</span>
             </button>
             <button
               onClick={() => navigate(Screen.WASHER_JOBS)}

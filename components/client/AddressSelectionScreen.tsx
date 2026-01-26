@@ -172,8 +172,8 @@ export const AddressSelectionScreen: React.FC<AddressSelectionScreenProps> = ({
 
                         <div className="space-y-4">
                             {/* SAVED ADDRESSES LIST */}
-                            {savedAddresses.length > 0 ? (
-                                savedAddresses.map((addr, idx) => (
+                            {(savedAddresses || []).length > 0 ? (
+                                (savedAddresses || []).map((addr, idx) => (
                                     <div
                                         key={addr.id || idx}
                                         className={`relative rounded-xl border-2 transition-all ${selectedAddress === addr.address ? 'bg-[#3b82f6]/10 border-[#3b82f6] shadow-blue' : 'bg-surface-dark border-white/10 hover:border-white/30'}`}

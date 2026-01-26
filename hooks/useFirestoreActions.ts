@@ -200,39 +200,11 @@ export const useFirestoreActions = () => {
                 }
             }
 
-            // 2. Aggregate Ratings for Washer
+            // 2. Update Washer Profile (Rating & Availability) via SERVER
             if (ratingData.washerId) {
                 try {
-                    const q = query(
-                        collection(db, 'orders'),
-                        where('washerId', '==', ratingData.washerId),
-                        where('status', '==', 'Completed')
-                    );
-
-                    const snapshot = await getDocs(q);
-                    let totalRating = 0;
-                    let count = 0;
-
-                    snapshot.forEach(doc => {
-                        const data = doc.data() as Order;
-                        if (data.rating) {
-                            totalRating += data.rating;
-                            count++;
-                        }
-                    });
-
-                    const average = count > 0 ? totalRating / count : ratingData.clientRating;
-
-                    // 3. Update Washer Profile
-                    const oneHourInMs = 60 * 60 * 1000;
-                    const nextAvailableTime = Timestamp.fromMillis(Date.now() + oneHourInMs);
-
-                    await updateDoc(doc(db, 'users', ratingData.washerId), {
-                        rating: parseFloat(average.toFixed(1)),
-                        status: 'Available',
-                        nextAvailableTime: nextAvailableTime,
-                        completedJobs: count
-                    });
+                    await StripeService.updateWasherRating(ratingData.washerId, ratingData.clientRating);
+                    console.log('✅ Washer profile updated via server');
                 } catch (washerUpdateError) {
                     console.warn('⚠️ Could not update washer profile (non-critical):', washerUpdateError);
                 }

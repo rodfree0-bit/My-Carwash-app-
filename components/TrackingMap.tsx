@@ -75,6 +75,9 @@ export const TrackingMap: React.FC<TrackingMapProps> = ({
         });
     }, [clientLocation]);
 
+    const lastRouteUpdateRef = useRef<number>(0);
+    const lastWasherPosRef = useRef<{ lat: number; lng: number } | null>(null);
+
     useEffect(() => {
         if (!map || !washerLocation || !clientLocation) return;
 
@@ -82,35 +85,73 @@ export const TrackingMap: React.FC<TrackingMapProps> = ({
         if (washerLocation.lat === 0 && washerLocation.lng === 0) return;
         if (clientLocation.lat === 0 && clientLocation.lng === 0) return;
 
-        const handleMarkersOnly = () => {
+        const distanceMoved = lastWasherPosRef.current ?
+            google.maps.geometry.spherical.computeDistanceBetween(
+                new google.maps.LatLng(washerLocation.lat, washerLocation.lng),
+                new google.maps.LatLng(lastWasherPosRef.current.lat, lastWasherPosRef.current.lng)
+            ) : Infinity;
+
+        const timeSinceLastUpdate = Date.now() - lastRouteUpdateRef.current;
+        const needsRouteUpdate = !routeLine || distanceMoved > 200 || timeSinceLastUpdate > 120000;
+
+        const handleMarkersOnly = (heading: number = 0) => {
+            const rotatedSvg = carIconSvg.replace('<svg', `<svg style="transform: rotate(${heading}deg); transition: transform 0.5s ease-out;"`);
+
             if (!washerMarker) {
                 const marker = new google.maps.Marker({
                     position: washerLocation,
                     map: map,
                     icon: {
-                        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(carIconSvg),
-                        scaledSize: new google.maps.Size(40, 40),
-                        anchor: new google.maps.Point(20, 20),
+                        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(rotatedSvg),
+                        scaledSize: new google.maps.Size(45, 45),
+                        anchor: new google.maps.Point(22.5, 22.5),
                     },
                     title: washerName
                 });
                 setWasherMarker(marker);
             } else {
-                washerMarker.setPosition(washerLocation);
+                // Use custom animation for smooth movement
+                const startPos = washerMarker.getPosition();
+                if (startPos) {
+                    let frames = 0;
+                    const totalFrames = 60; // 1 second animation at 60fps
+                    const animate = () => {
+                        frames++;
+                        const fraction = frames / totalFrames;
+                        if (fraction <= 1) {
+                            const lat = startPos.lat() + (washerLocation.lat - startPos.lat()) * fraction;
+                            const lng = startPos.lng() + (washerLocation.lng - startPos.lng()) * fraction;
+                            washerMarker.setPosition({ lat, lng });
+                            requestAnimationFrame(animate);
+                        }
+                    };
+                    animate();
+                } else {
+                    washerMarker.setPosition(washerLocation);
+                }
+
+                washerMarker.setIcon({
+                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(rotatedSvg),
+                    scaledSize: new google.maps.Size(45, 45),
+                    anchor: new google.maps.Point(22.5, 22.5),
+                });
             }
 
             if (!routeLine) {
                 const line = new google.maps.Polyline({
                     path: [washerLocation, clientLocation],
                     strokeColor: '#3b82f6',
-                    strokeOpacity: 0.5,
+                    strokeOpacity: 0,
                     strokeWeight: 3,
                     map: map,
-                    icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 4 }, offset: '0', repeat: '20px' }]
+                    visible: false
                 });
                 setRouteLine(line);
             } else {
-                routeLine.setPath([washerLocation, clientLocation]);
+                // If we don't need a full route update, just update the direct line if that's what we're using
+                if (!needsRouteUpdate && routeLine.getPath().getLength() === 2) {
+                    routeLine.setPath([washerLocation, clientLocation]);
+                }
             }
 
             const bounds = new google.maps.LatLngBounds();
@@ -119,58 +160,50 @@ export const TrackingMap: React.FC<TrackingMapProps> = ({
             map.fitBounds(bounds, { top: 150, bottom: 200, left: 50, right: 50 });
         };
 
-        directionsService.route(
-            { origin: washerLocation, destination: clientLocation, travelMode: google.maps.TravelMode.DRIVING },
-            (result, status) => {
-                if (status === google.maps.DirectionsStatus.OK && result) {
-                    const path = result.routes[0].overview_path;
-                    let heading = 0;
-                    if (path.length > 1) {
-                        heading = google.maps.geometry.spherical.computeHeading(path[0], path[1]);
-                    }
+        if (needsRouteUpdate) {
+            directionsService.route(
+                { origin: washerLocation, destination: clientLocation, travelMode: google.maps.TravelMode.DRIVING },
+                (result, status) => {
+                    if (status === google.maps.DirectionsStatus.OK && result) {
+                        lastRouteUpdateRef.current = Date.now();
+                        lastWasherPosRef.current = washerLocation;
 
-                    if (!routeLine) {
-                        const line = new google.maps.Polyline({
-                            path,
-                            strokeColor: '#3b82f6',
-                            strokeOpacity: 0.8,
-                            strokeWeight: 5,
-                            map: map,
-                        });
-                        setRouteLine(line);
+                        const path = result.routes[0].overview_path;
+                        let heading = 0;
+                        if (path.length > 1) {
+                            heading = google.maps.geometry.spherical.computeHeading(path[0], path[1]);
+                        }
+
+                        if (!routeLine) {
+                            const line = new google.maps.Polyline({
+                                path,
+                                strokeColor: '#3b82f6',
+                                strokeOpacity: 0.8,
+                                strokeWeight: 5,
+                                map: map,
+                            });
+                            setRouteLine(line);
+                        } else {
+                            routeLine.setPath(path);
+                            routeLine.setVisible(true);
+                            routeLine.setOptions({ strokeOpacity: 0.8, strokeWeight: 5 });
+                        }
+
+                        // Update marker with heading
+                        handleMarkersOnly(heading);
+
+                        const bounds = new google.maps.LatLngBounds();
+                        path.forEach(p => bounds.extend(p));
+                        map.fitBounds(bounds, { top: 150, bottom: 200, left: 50, right: 50 });
                     } else {
-                        routeLine.setPath(path);
+                        handleMarkersOnly();
                     }
-
-                    const rotatedSvg = carIconSvg.replace('<svg', `<svg style="transform: rotate(${heading}deg)"`);
-                    if (!washerMarker) {
-                        setWasherMarker(new google.maps.Marker({
-                            position: washerLocation,
-                            map: map,
-                            icon: {
-                                url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(rotatedSvg),
-                                scaledSize: new google.maps.Size(45, 45),
-                                anchor: new google.maps.Point(22.5, 22.5),
-                            },
-                            title: washerName
-                        }));
-                    } else {
-                        washerMarker.setPosition(washerLocation);
-                        washerMarker.setIcon({
-                            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(rotatedSvg),
-                            scaledSize: new google.maps.Size(45, 45),
-                            anchor: new google.maps.Point(22.5, 22.5),
-                        });
-                    }
-
-                    const bounds = new google.maps.LatLngBounds();
-                    path.forEach(p => bounds.extend(p));
-                    map.fitBounds(bounds, { top: 150, bottom: 200, left: 50, right: 50 });
-                } else {
-                    handleMarkersOnly();
                 }
-            }
-        );
+            );
+        } else {
+            // Just updated marker position smoothly
+            handleMarkersOnly();
+        }
     }, [map, washerLocation, clientLocation, washerMarker, routeLine, washerName, directionsService]);
 
     return (

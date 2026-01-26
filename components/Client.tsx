@@ -64,23 +64,41 @@ interface ClientProps {
   targetOrderId?: string | null;
 }
 
-const ClientContent: React.FC<ClientProps> = ({
-  screen, navigate, orders, user, packages, packagesError, addons, team, vehicleTypes,
-  createOrder, updateOrder, cancelOrder, newOrderDraft, setNewOrderDraft,
-  notifications, addNotification, messages, sendMessage, markMessagesAsRead, createIssue, updateProfile, logout,
-  submitOrderRating, serviceArea, globalFees, discounts, targetOrderId
-}) => {
+const ClientContent: React.FC<ClientProps> = (props) => {
+  // Destructure scalar props that don't need array normalization
+  const {
+    screen, navigate, user, packagesError,
+    createOrder, updateOrder, cancelOrder, newOrderDraft, setNewOrderDraft,
+    addNotification, sendMessage, markMessagesAsRead, createIssue, updateProfile, logout,
+    submitOrderRating, serviceArea, targetOrderId
+  } = props;
+
+  // --- STABILITY & NORMALIZATION BLOCK (v3.4 FINAL) ---
+  // Shadow incoming array props with safe versions using the ORIGINAL names.
+  // This makes the entire 2800+ line file stable without manual renaming.
+  const orders = Array.isArray(props.orders) ? props.orders : [];
+  const packages = Array.isArray(props.packages) ? props.packages : [];
+  const addons = Array.isArray(props.addons) ? props.addons : [];
+  const team = Array.isArray(props.team) ? props.team : [];
+  const vehicleTypes = Array.isArray(props.vehicleTypes) ? props.vehicleTypes : [];
+  const notifications = Array.isArray(props.notifications) ? props.notifications : [];
+  const messages = Array.isArray(props.messages) ? props.messages : [];
+  const globalFees = Array.isArray(props.globalFees) ? props.globalFees : [];
+  const discounts = Array.isArray(props.discounts) ? props.discounts : [];
+
+  // Shadow user sub-arrays with safe versions
+  const vehicles = user?.savedVehicles || [];
+  // Note: cards and addresses are handled as state below to support Stripe/Local updates
 
   // --- DEEP LINKING LOGIC ---
   const [orderToView, setOrderToView] = useState<Order | null>(null);
 
   useEffect(() => {
-    if (targetOrderId) {
+    if (targetOrderId && orders.length > 0) {
       const order = orders.find(o => o.id === targetOrderId);
       if (order) {
         console.log('🔗 Client Deep Link: Viewing order', targetOrderId);
         setOrderToView(order);
-        // Navigate handled by App.tsx, we just set state
       }
     }
   }, [targetOrderId, orders]);
@@ -88,23 +106,17 @@ const ClientContent: React.FC<ClientProps> = ({
   // Monitor Viewed Order for Real-Time Status Changes
   useEffect(() => {
     if (orderToView) {
-      const liveOrder = orders.find(o => o.id === orderToView.id);
+      const liveOrder = (orders || []).find(o => o.id === orderToView.id);
 
       if (!liveOrder) {
-        // Order Deleted
         setOrderToView(null);
-        // Optionally show toast or navigate back
         return;
       }
 
       if (liveOrder.status === 'Cancelled' && orderToView.status !== 'Cancelled') {
-        // Order Cancelled Externally
         showNativeToast('Your order has been cancelled.');
-        // Stay on details or go back depending on UX preference. 
-        // Currently just updating state so UI reflects "Cancelled"
       }
 
-      // Update local state to keep UI fresh
       if (JSON.stringify(liveOrder) !== JSON.stringify(orderToView)) {
         setOrderToView(liveOrder);
       }
@@ -215,18 +227,20 @@ const ClientContent: React.FC<ClientProps> = ({
   };
 
   // Removed duplicate ClientScreens definition
-  console.log('🎬 ClientScreens RENDERED - user.savedCards:', user.savedCards);
+  console.log('🎬 ClientScreens RENDERED - user.savedCards:', user?.savedCards);
 
-  // Log user data on mount - BUILD v2.4
+  // Log user data on mount - BUILD v3.5 FINAL
   useEffect(() => {
-    console.log('👤 USER DATA:', {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      savedCards: user.savedCards,
-      savedVehicles: user.savedVehicles?.length,
-      savedAddresses: user.savedAddresses?.length
-    });
+    if (user) {
+      console.log('👤 USER DATA:', {
+        id: user.id || 'no-id',
+        name: user.name || 'no-name',
+        email: user.email || 'no-email',
+        savedCards: user.savedCards || [],
+        savedVehicles: user.savedVehicles?.length || 0,
+        savedAddresses: user.savedAddresses?.length || 0
+      });
+    }
   }, [user]);
 
   const { showToast } = useToast();
@@ -249,7 +263,6 @@ const ClientContent: React.FC<ClientProps> = ({
     value: user.savedVehicles,
     length: user.savedVehicles?.length
   });
-  const vehicles = Array.isArray(user.savedVehicles) ? user.savedVehicles : [];
 
   // Handler for confirming order
   const handleConfirmOrder = (finalTotal: number) => {
@@ -262,16 +275,16 @@ const ClientContent: React.FC<ClientProps> = ({
     console.log('📍 Address:', selectedAddress);
 
     // Create order data
-    const selectedCardData = cards.find(c => c.id === selectedCard);
+    const selectedCardData = (cards || []).find(c => c.id === selectedCard);
 
     const orderData: Partial<Order> = {
       clientId: user.id,
       clientName: user.name,
-      vehicleConfigs: vehicleConfigs,
+      vehicleConfigs: vehicleConfigs || [],
       // Legacy fields for backward compatibility
-      vehicle: vehicleConfigs.length > 0 ? vehicleConfigs[0].vehicleModel : '',
-      vehicleType: vehicleConfigs.length > 0 ? vehicleConfigs[0].vehicleType : 'sedan',
-      service: packages.find(p => p.id === vehicleConfigs[0]?.packageId)?.name || '',
+      vehicle: (vehicleConfigs || []).length > 0 ? (vehicleConfigs || [])[0].vehicleModel : '',
+      vehicleType: (vehicleConfigs || []).length > 0 ? (vehicleConfigs || [])[0].vehicleType : 'sedan',
+      service: (packages || []).find(p => p.id === (vehicleConfigs || [])[0]?.packageId)?.name || '',
       date: selectedDate,
       time: selectedTime,
       address: selectedAddress,
@@ -293,7 +306,7 @@ const ClientContent: React.FC<ClientProps> = ({
 
   // Check for order requiring rating (Blocking Flow), ignoring explicitly skipped ones locally to avoid flicker
   const [recentlyRatedOrders, setRecentlyRatedOrders] = useState<string[]>([]);
-  const orderToRate = orders.find(o =>
+  const orderToRate = (orders || []).find(o =>
     o.status === 'Completed' &&
     !o.clientRating &&
     !recentlyRatedOrders.includes(o.id)
@@ -329,9 +342,9 @@ const ClientContent: React.FC<ClientProps> = ({
       // Only run if user has NO saved vehicles but HAS orders
       if (user.savedVehicles && user.savedVehicles.length === 0 && orders.length > 0) {
         console.log('🚑 AUTO-RECOVERY: Detecting lost vehicles from order history...');
-
+  
         const recoveredVehicles = new Map<string, SavedVehicle>();
-
+  
         orders.forEach(order => {
           // Check for modern vehicleConfigs
           if (order.vehicleConfigs && order.vehicleConfigs.length > 0) {
@@ -366,12 +379,12 @@ const ClientContent: React.FC<ClientProps> = ({
             }
           }
         });
-
+  
         if (recoveredVehicles.size > 0) {
           const vehiclesToSave = Array.from(recoveredVehicles.values());
           console.log(`🚑 RECOVERED ${vehiclesToSave.length} VEHICLES:`, vehiclesToSave);
           showToast(`Recovering ${vehiclesToSave.length} vehicles...`, 'info');
-
+  
           // Save to Firestore
           await updateProfile({
             savedVehicles: vehiclesToSave
@@ -382,7 +395,7 @@ const ClientContent: React.FC<ClientProps> = ({
         }
       }
     };
-
+  
     recoverVehicles();
   }, [orders, user.savedVehicles]);
   */
@@ -429,7 +442,7 @@ const ClientContent: React.FC<ClientProps> = ({
   }, [orders, optimisticOrders]);
 
   // Calculate unread messages count for the client
-  const messageUnreadCount = messages.filter(m => m.receiverId === user.id && !m.read).length;
+  const messageUnreadCount = (messages || []).filter(m => m.receiverId === user.id && !m.read).length;
 
   // Reset manually closed flag ONLY if a new message arrives (using ref to avoid loops)
   const prevClientUnreadCountRef = useRef(messageUnreadCount);
@@ -460,7 +473,7 @@ const ClientContent: React.FC<ClientProps> = ({
         }
       }
     }
-  }, [showOrderChat, chatManuallyClosed, user.id, orders, messageUnreadCount, messages.length]);
+  }, [showOrderChat, chatManuallyClosed, user.id, orders, messageUnreadCount, (messages || []).length]);
 
   // Mark messages as read when chat is open
   useEffect(() => {
@@ -468,7 +481,7 @@ const ClientContent: React.FC<ClientProps> = ({
     const activeOrderInChat = orders.find(o => o.id === viewingOrder?.id);
     // Count unread messages for this specific order and current user
     const chatUnreadCount = activeOrderInChat
-      ? messages.filter(m => m.orderId === activeOrderInChat.id && m.receiverId === user.id && !m.read).length
+      ? (messages || []).filter(m => m.orderId === activeOrderInChat.id && m.receiverId === user.id && !m.read).length
       : 0;
 
     if (showOrderChat && activeOrderInChat && chatUnreadCount > 0) {
@@ -679,15 +692,15 @@ const ClientContent: React.FC<ClientProps> = ({
 
 
 
-  const unreadCount = notifications.filter(n => !n.read && n.userId === user.id).length;
+  const unreadCount = (notifications || []).filter(n => !n.read && n.userId === user.id).length;
 
   // Get active order for chat context
-  const activeOrder = orders.find(o => ['Assigned', 'En Route', 'Arrived', 'In Progress'].includes(o.status));
-  const activeChatMessages = activeOrder ? messages.filter(m => m.orderId === activeOrder.id) : [];
+  const activeOrder = (orders || []).find(o => ['Assigned', 'En Route', 'Arrived', 'In Progress'].includes(o.status));
+  const activeChatMessages = activeOrder ? (messages || []).filter(m => m.orderId === activeOrder.id) : [];
 
   // Chat Unread Count (Specific to Chat Messages, not generic notifications if separated, but here we used notifications for messages too)
   // Let's filter notifications for "New Message" related to this order or just use unreadCount for simplicity as per request
-  const chatUnreadCount = notifications.filter(n => !n.read && n.userId === user.id && n.title === 'New Message').length;
+  const chatUnreadCount = (notifications || []).filter(n => !n.read && n.userId === user.id && n.title === 'New Message').length;
 
 
   const handleSendMessage = (e?: React.FormEvent) => {
@@ -737,7 +750,7 @@ const ClientContent: React.FC<ClientProps> = ({
           </button>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {notifications.filter(n => n.userId === user.id).length === 0 ? (
+          {((notifications || []).filter(n => n.userId === user.id)).length === 0 ? (
             <div className="p-8 text-center text-slate-500">
               <span className="material-symbols-outlined text-4xl mb-2 opacity-50">notifications_off</span>
               <p>No notifications yet</p>
@@ -1027,7 +1040,7 @@ const ClientContent: React.FC<ClientProps> = ({
 
   // Ensure a valid card is always selected
   useEffect(() => {
-    if (cards.length > 0) {
+    if (Array.isArray(cards) && cards.length > 0) {
       if (!selectedCard) {
         console.log('💳 Auto-selecting first card (init)');
         setSelectedCard(cards[0].id);
@@ -1359,7 +1372,7 @@ const ClientContent: React.FC<ClientProps> = ({
           <div className="flex justify-between items-center mb-6">
             <div>
               <p className="text-slate-400 text-sm">Welcome back,</p>
-              <h1 className="text-2xl font-bold">{profileData.name.split(' ')[0]}</h1>
+              <h1 className="text-2xl font-bold">{(profileData.name || '').split(' ')[0] || 'User'}</h1>
             </div>
             <div className="flex items-center gap-3">
               <button onClick={() => navigate(Screen.CLIENT_PROFILE)} className="w-10 h-10 rounded-full bg-cover bg-center border-2 border-white/10" style={{ backgroundImage: `url("${profileData.photo}")` }}></button>
@@ -1424,7 +1437,7 @@ const ClientContent: React.FC<ClientProps> = ({
                 <span className="material-symbols-outlined text-purple-400">directions_car</span>
               </div>
               <p className="font-bold text-white group-hover:text-purple-200 transition-colors">My Garage</p>
-              <p className="text-xs text-purple-400/60 mt-1">{vehicles.length} Vehicles</p>
+              <p className="text-xs text-purple-400/60 mt-1">{(vehicles || []).length} Vehicles</p>
             </button>
           </div>
 
@@ -1595,7 +1608,7 @@ const ClientContent: React.FC<ClientProps> = ({
           </header>
 
           <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 pb-24">
-            {vehicles.map(vehicle => (
+            {(vehicles || []).map(vehicle => (
               <div key={vehicle.id} className="bg-surface-dark rounded-xl overflow-hidden border border-white/5 group">
                 <div className="h-40 bg-cover bg-center relative" style={{ backgroundImage: `url("${vehicle.image}")` }}>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
@@ -1624,7 +1637,7 @@ const ClientContent: React.FC<ClientProps> = ({
               </div>
             ))}
 
-            {vehicles.length === 0 && (
+            {(vehicles || []).length === 0 && (
               <div className="flex flex-col items-center justify-center py-20 text-slate-500">
                 <span className="material-symbols-outlined text-6xl mb-4 opacity-50">garage</span>
                 <p>Your garage is empty.</p>
@@ -1691,7 +1704,7 @@ const ClientContent: React.FC<ClientProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 <div className="bg-amber-500/20 px-2 py-1 rounded-lg text-amber-500 text-[10px] font-black border border-amber-500/20">
-                  {user.loyaltyPoints || 0} {user.loyaltyPoints === 1 ? 'WASH' : 'WASHES'}
+                  {(user?.loyaltyPoints || 0)} {(user?.loyaltyPoints === 1 ? 'WASH' : 'WASHES')}
                 </div>
                 <span className="material-symbols-outlined text-amber-400">chevron_right</span>
               </div>
@@ -1779,7 +1792,7 @@ const ClientContent: React.FC<ClientProps> = ({
                   <button onClick={() => setShowAddressModal(false)}><span className="material-symbols-outlined">close</span></button>
                 </div>
                 <div className="space-y-3 mb-6">
-                  {addresses.map(addr => (
+                  {(addresses || []).map(addr => (
                     <div key={addr.id} className="bg-white/5 p-4 rounded-xl border border-white/10">
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex items-center gap-3">
@@ -1816,7 +1829,7 @@ const ClientContent: React.FC<ClientProps> = ({
                 {!showAddCardForm ? (
                   <>
                     <div className="space-y-3 mb-6">
-                      {cards.map(card => (
+                      {(cards || []).map(card => (
                         <div key={card.id} className="bg-white/5 p-4 rounded-xl border border-white/10 flex justify-between items-center">
                           <div className="flex items-center gap-4">
                             <div className="w-10 h-6 bg-white/10 rounded flex items-center justify-center text-xs font-bold uppercase">{card.brand}</div>
@@ -1896,7 +1909,7 @@ const ClientContent: React.FC<ClientProps> = ({
                 </button>
               </div>
               <div className="p-4">
-                <LoyaltyProgram userId={user.id} />
+                <LoyaltyProgram userId={user?.id || ''} />
               </div>
             </div>
           </div>
@@ -1965,7 +1978,7 @@ const ClientContent: React.FC<ClientProps> = ({
                   <div className="flex justify-between items-center text-[10px]">
                     <div className="flex items-center gap-1 text-slate-400">
                       <span className="material-symbols-outlined text-xs">location_on</span>
-                      <span className="truncate max-w-[150px]">{order.address?.split(',')[0]}</span>
+                      <span className="truncate max-w-[150px]">{order.address?.split(',')?.[0] || 'Address'}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       {order.clientRating && (
@@ -2239,7 +2252,7 @@ const ClientContent: React.FC<ClientProps> = ({
           <h2 className="text-sm text-slate-400 uppercase font-bold mb-4">Select Payment Method</h2>
 
           <div className="space-y-3 mb-6">
-            {cards.map(card => (
+            {(cards || []).map(card => (
               <button
                 key={card.id}
                 onClick={() => setSelectedCard(card.id)}
@@ -2344,7 +2357,7 @@ const ClientContent: React.FC<ClientProps> = ({
                 className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-red-500 transition-colors"
               >
                 <option value="">Select an order...</option>
-                {orders.map(o => (
+                {(orders || []).map(o => (
                   <option key={o.id} value={o.id}>
                     {new Date(o.createdAt?.seconds * 1000 || Date.now()).toLocaleDateString()} - {o.vehicleName || 'Vehicle'} ({o.status})
                   </option>
@@ -2422,7 +2435,7 @@ const ClientContent: React.FC<ClientProps> = ({
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 pb-24">
-          {vehicles.length === 0 ? (
+          {(vehicles || []).length === 0 ? (
             <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8 opacity-60">
               <span className="material-symbols-outlined text-6xl text-slate-600 mb-4">no_crash</span>
               <p className="text-slate-400 font-medium">Your garage is empty.</p>
@@ -2430,7 +2443,7 @@ const ClientContent: React.FC<ClientProps> = ({
             </div>
           ) : (
             <div className="grid gap-4">
-              {vehicles.map((v) => (
+              {(vehicles || []).map((v) => (
                 <div key={v.id} className="relative group overflow-hidden rounded-2xl bg-surface-dark border border-white/5 shadow-2xl transition-all hover:scale-[1.02] hover:shadow-primary/10 hover:border-primary/30">
                   {/* Vehicle Image / Placeholder */}
                   <div className="aspect-video w-full bg-black/60 relative flex items-center justify-center overflow-hidden">
@@ -2584,7 +2597,7 @@ const ClientContent: React.FC<ClientProps> = ({
               {!showAddCardForm ? (
                 <>
                   <div className="space-y-3 mb-6">
-                    {cards.map(card => (
+                    {(cards || []).map(card => (
                       <div key={card.id} className="bg-white/5 p-4 rounded-xl border border-white/10 flex justify-between items-center">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-6 bg-white/10 rounded flex items-center justify-center text-xs font-bold uppercase">{card.brand}</div>
@@ -2629,16 +2642,16 @@ const ClientContent: React.FC<ClientProps> = ({
       let totalPrice = selectedOption === 'asap' ? 15 : 0; // Start with Wash Now fee if applicable
       let summaryPackageName = '';
 
-      if (vehicleConfigs && vehicleConfigs.length > 0) {
-        vehicleConfigs.forEach(config => {
-          const pkg = packages.find(p => p.id === config.packageId);
+      if ((vehicleConfigs || []).length > 0) {
+        (vehicleConfigs || []).forEach(config => {
+          const pkg = (packages || []).find(p => p.id === config.packageId);
           if (pkg && pkg.price) {
             const pkgPrice = pkg.price[config.vehicleType] || 0;
             totalPrice += pkgPrice;
             if (!summaryPackageName) summaryPackageName = pkg.name;
           }
-          config.addonIds.forEach(addonId => {
-            const addon = addons.find(a => a.id === addonId);
+          (config.addonIds || []).forEach(addonId => {
+            const addon = (addons || []).find(a => a.id === addonId);
             if (addon && addon.price) {
               const addonPrice = addon.price[config.vehicleType] || 0;
               totalPrice += addonPrice;
@@ -2646,8 +2659,8 @@ const ClientContent: React.FC<ClientProps> = ({
           });
         });
 
-        if (vehicleConfigs.length > 1) {
-          summaryPackageName = `${vehicleConfigs.length} Vehicles`;
+        if ((vehicleConfigs || []).length > 1) {
+          summaryPackageName = `${(vehicleConfigs || []).length} Vehicles`;
         }
       }
 
@@ -2739,7 +2752,8 @@ const ClientContent: React.FC<ClientProps> = ({
           navigate={navigate}
           showFeesToClient={false}
           selectedCard={(() => {
-            const allCards = cards.length > 0 ? cards : (user?.savedCards || []);
+            const currentCards = cards || [];
+            const allCards = currentCards.length > 0 ? currentCards : (user?.savedCards || []);
             const cardId = selectedCard || user?.savedCards?.[0]?.id;
             return allCards.find(c => c.id === cardId) || allCards[0] || null;
           })()}
@@ -2759,7 +2773,7 @@ const ClientContent: React.FC<ClientProps> = ({
               {!showAddCardForm ? (
                 <>
                   <div className="space-y-3 mb-6">
-                    {cards.map(card => (
+                    {(cards || []).map(card => (
                       <div key={card.id} className="bg-white/5 p-4 rounded-xl border border-white/10 flex justify-between items-center">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-6 bg-white/10 rounded flex items-center justify-center text-xs font-bold text-white uppercase">{card.brand}</div>

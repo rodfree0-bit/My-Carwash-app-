@@ -47,7 +47,8 @@ const AppContent: React.FC = () => {
     const { platform, isMobile, isIOS, isAndroid, hasNotch } = usePlatform();
 
     useEffect(() => {
-        console.log(`🚀 VERSION 2.9 LOADED - Platform: ${platform.toUpperCase()} ${hasNotch ? '(Notch)' : ''} 🚀`);
+        console.log(`🚀 VERSION 3.5.1 STABLE - Platform: ${platform.toUpperCase()} ${hasNotch ? '(Notch)' : ''} 🚀`);
+        console.log('🛠️ STABILITY PATCH APPLIED');
 
         // Add platform class to HTML tag for REM scaling
         if (isMobile) document.documentElement.classList.add('platform-mobile');
@@ -857,8 +858,8 @@ const AppContent: React.FC = () => {
                             switch (true) {
                                 case currentScreen.startsWith('CLIENT'):
                                     const clientUser = currentUser as ClientUser;
+                                    console.log('🎬 ClientScreens RENDERED - user.savedCards:', clientUser?.savedCards);
                                     console.log('🔵 Passing user to ClientScreens:', {
-                                        id: clientUser.id,
                                         savedCards: clientUser.savedCards,
                                         savedVehicles: clientUser.savedVehicles?.length
                                     });
@@ -866,7 +867,7 @@ const AppContent: React.FC = () => {
                                         <ClientScreens
                                             screen={currentScreen}
                                             navigate={navigateTo}
-                                            orders={orders.filter(o => o.clientId === currentUser.id)}
+                                            orders={(orders || []).filter(o => o.clientId === currentUser.id)}
                                             updateOrder={handleUpdateOrder}
                                             cancelOrder={handleCancelOrder}
                                             createOrder={handleCreateOrder}

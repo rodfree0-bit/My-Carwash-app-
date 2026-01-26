@@ -45,28 +45,23 @@ export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = (
 
     // Calculate subtotal (services only)
     const calculateSubtotal = () => {
-        let total = 0;
+        let subtotal = 0;
+        (vehicleConfigs || []).forEach(config => {
+            const pkg = (packages || []).find(p => p.id === config.packageId);
+            const vehicle = (vehicles || []).find(v => v.id === config.vehicleId);
+            if (pkg && vehicle) {
+                const basePrice = pkg.price?.[vehicle.type as VehicleType] || 0;
+                subtotal += basePrice;
 
-        vehicleConfigs.forEach(config => {
-            const vehicle = vehicles.find(v => v.id === config.vehicleId);
-            const vehicleType = vehicle?.type || 'sedan';
-
-            // Add package price
-            const pkg = packages.find(p => p.id === config.packageId);
-            if (pkg) {
-                total += pkg.price[vehicleType as VehicleType] || 0;
+                (config.addonIds || []).forEach((addonId: string) => {
+                    const addon = (addons || []).find(a => a.id === addonId);
+                    if (addon) {
+                        subtotal += addon.price?.[vehicle.type as VehicleType] || 0;
+                    }
+                });
             }
-
-            // Add addon prices
-            config.addonIds?.forEach((addonId: string) => {
-                const addon = addons.find(a => a.id === addonId);
-                if (addon) {
-                    total += addon.price[vehicleType as VehicleType] || 0;
-                }
-            });
         });
-
-        return total;
+        return subtotal;
     };
 
     const handleApplyDiscount = () => {
@@ -77,7 +72,7 @@ export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = (
 
         console.log('🔍 Checking discount:', discountCode, 'Available:', discounts);
 
-        const discount = discounts.find(d =>
+        const discount = (discounts || []).find(d =>
             d.code.toLowerCase() === discountCode.toLowerCase() &&
             d.active
         );
@@ -147,7 +142,7 @@ export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = (
     const subtotalAfterDiscount = subtotalWithWashNow - discountAmount;
 
     // Calculate global fees (for display/washer calculations only, NOT charged to client)
-    const totalFeesAmount = globalFees.reduce((acc, fee) => {
+    const totalFeesAmount = (globalFees || []).reduce((acc, fee) => {
         return acc + (subtotalAfterDiscount * fee.percentage / 100);
     }, 0);
 
@@ -188,10 +183,10 @@ export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = (
                         </div>
                     </div>
 
-                    {vehicleConfigs.map((config, index) => {
-                        const vehicle = vehicles.find(v => v.id === config.vehicleId);
+                    {(vehicleConfigs || []).map((config, index) => {
+                        const vehicle = (vehicles || []).find(v => v.id === config.vehicleId);
                         const vehicleType = vehicle?.type || 'sedan';
-                        const pkg = packages.find(p => p.id === config.packageId);
+                        const pkg = (packages || []).find(p => p.id === config.packageId);
 
                         return (
                             <div key={config.vehicleId} className="bg-surface-dark rounded-xl border border-white/10 overflow-hidden">
@@ -220,19 +215,19 @@ export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = (
                                             <p className="font-bold">{pkg?.name}</p>
                                             <p className="text-xs text-slate-400 mt-1">{pkg?.description}</p>
                                         </div>
-                                        <p className="font-bold text-primary">${pkg?.price[vehicleType as VehicleType]}</p>
+                                        <p className="font-bold text-primary">${(pkg?.price && pkg.price[vehicleType as VehicleType]) || 0}</p>
                                     </div>
 
                                     {/* Addons */}
                                     {config.addonIds && config.addonIds.length > 0 && (
                                         <div className="border-t border-white/5 pt-3">
                                             <p className="text-xs text-slate-500 mb-2">Extras</p>
-                                            {config.addonIds.map((addonId: string) => {
-                                                const addon = addons.find(a => a.id === addonId);
+                                            {(config.addonIds || []).map((addonId: string) => {
+                                                const addon = (addons || []).find(a => a.id === addonId);
                                                 return (
                                                     <div key={addonId} className="flex justify-between text-sm text-slate-300 mb-1">
                                                         <span>+ {addon?.name}</span>
-                                                        <span>${addon?.price[vehicleType as VehicleType]}</span>
+                                                        <span>${(addon?.price && addon.price[vehicleType as VehicleType]) || 0}</span>
                                                     </div>
                                                 );
                                             })}
@@ -349,11 +344,11 @@ export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = (
                 <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 mb-6">
                     <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">Billing Details</p>
                     {/* Per-Vehicle Breakdown */}
-                    {vehicleConfigs.map((config, index) => {
-                        const vehicle = vehicles.find(v => v.id === config.vehicleId);
+                    {(vehicleConfigs || []).map((config, index) => {
+                        const vehicle = (vehicles || []).find(v => v.id === config.vehicleId);
                         const vehicleType = vehicle?.type || 'sedan';
-                        const pkg = packages.find(p => p.id === config.packageId);
-                        const pkgPrice = pkg?.price[vehicleType as VehicleType] || 0;
+                        const pkg = (packages || []).find(p => p.id === config.packageId);
+                        const pkgPrice = pkg?.price?.[vehicleType as VehicleType] || 0;
 
                         return (
                             <div key={config.vehicleId} className="mb-3 text-sm">
@@ -363,9 +358,9 @@ export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = (
                                 </div>
                                 {config.addonIds && config.addonIds.length > 0 && (
                                     <div className="ml-2 space-y-1">
-                                        {config.addonIds.map((addonId: string) => {
-                                            const addon = addons.find(a => a.id === addonId);
-                                            const addonPrice = addon?.price[vehicleType as VehicleType] || 0;
+                                        {(config.addonIds || []).map((addonId: string) => {
+                                            const addon = (addons || []).find(a => a.id === addonId);
+                                            const addonPrice = addon?.price?.[vehicleType as VehicleType] || 0;
                                             return (
                                                 <div key={addonId} className="flex justify-between text-xs text-slate-400">
                                                     <span>+ {addon?.name}</span>
@@ -410,7 +405,7 @@ export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = (
                         <p className="text-3xl font-black text-white">${finalTotal.toFixed(2)}</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-xs text-slate-400">{vehicleConfigs.length} Vehicle{vehicleConfigs.length !== 1 ? 's' : ''}</p>
+                        <p className="text-xs text-slate-400">{(vehicleConfigs || []).length} Vehicle{(vehicleConfigs || []).length !== 1 ? 's' : ''}</p>
                         <p className="text-xs text-primary font-bold">{selectedOption === 'asap' ? 'Wash Now' : 'Scheduled'}</p>
                     </div>
                 </div>
