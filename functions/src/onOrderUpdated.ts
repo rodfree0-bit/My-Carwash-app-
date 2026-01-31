@@ -47,7 +47,14 @@ export const onOrderUpdated = functions.firestore
                                 washerId: after.washerId,
                                 screen: 'CLIENT_ORDERS'
                             },
-                            android: { priority: 'high' as const }
+                            android: {
+                                priority: 'high' as const,
+                                notification: {
+                                    channelId: 'orders',
+                                    priority: 'high' as const,
+                                    sound: 'default'
+                                }
+                            }
                         })
                     );
                 }
@@ -70,7 +77,14 @@ export const onOrderUpdated = functions.firestore
                                 targetRole: 'washer',
                                 screen: 'WASHER_JOBS'
                             },
-                            android: { priority: 'high' as const }
+                            android: {
+                                priority: 'high' as const,
+                                notification: {
+                                    channelId: 'orders',
+                                    priority: 'high' as const,
+                                    sound: 'default'
+                                }
+                            }
                         })
                     );
                 }
@@ -98,7 +112,14 @@ export const onOrderUpdated = functions.firestore
                                 targetRole: 'client',
                                 screen: 'CLIENT_ORDERS'
                             },
-                            android: { priority: 'high' as const }
+                            android: {
+                                priority: 'high' as const,
+                                notification: {
+                                    channelId: 'orders',
+                                    priority: 'high' as const,
+                                    sound: 'default'
+                                }
+                            }
                         })
                     );
                 }
@@ -122,7 +143,14 @@ export const onOrderUpdated = functions.firestore
                                     targetRole: 'washer',
                                     screen: 'WASHER_JOBS'
                                 },
-                                android: { priority: 'high' as const }
+                                android: {
+                                    priority: 'high' as const,
+                                    notification: {
+                                        channelId: 'orders',
+                                        priority: 'high' as const,
+                                        sound: 'default'
+                                    }
+                                }
                             })
                         );
                     }
@@ -175,7 +203,14 @@ export const onOrderUpdated = functions.firestore
                                     status: after.status,
                                     screen: 'CLIENT_ORDERS'
                                 },
-                                android: { priority: 'high' as const }
+                                android: {
+                                    priority: 'high' as const,
+                                    notification: {
+                                        channelId: 'orders',
+                                        priority: 'high' as const,
+                                        sound: 'default'
+                                    }
+                                }
                             })
                         );
                     }
@@ -200,7 +235,14 @@ export const onOrderUpdated = functions.firestore
                                         status: after.status,
                                         screen: 'WASHER_JOBS'
                                     },
-                                    android: { priority: 'high' as const }
+                                    android: {
+                                        priority: 'high' as const,
+                                        notification: {
+                                            channelId: 'orders',
+                                            priority: 'high' as const,
+                                            sound: 'default'
+                                        }
+                                    }
                                 })
                             );
                         }

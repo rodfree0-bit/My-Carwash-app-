@@ -61,26 +61,41 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return (
         <ToastContext.Provider value={{ showToast }}>
             {children}
-            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none">
+            <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-3 pointer-events-none w-full max-w-[90%] sm:max-w-md">
                 {toasts.map(toast => (
                     <div
                         key={toast.id}
-                        className={`pointer-events-auto min-w-[300px] p-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-2 fade-in duration-300 ${toast.type === 'success' ? 'bg-green-500 text-black' :
-                            toast.type === 'error' ? 'bg-red-500 text-white' :
-                                toast.type === 'warning' ? 'bg-amber-500 text-white' :
-                                    'bg-blue-500 text-white'
+                        className={`pointer-events-auto w-full p-3.5 rounded-2xl backdrop-blur-md shadow-lg border flex items-center gap-3 animate-in slide-in-from-top-4 fade-in duration-500 ease-out ${toast.type === 'success'
+                            ? 'bg-black/80 border-green-500/30 text-white' :
+                            toast.type === 'error'
+                                ? 'bg-black/80 border-red-500/30 text-white' :
+                                toast.type === 'warning'
+                                    ? 'bg-black/80 border-amber-500/30 text-white' :
+                                    'bg-black/80 border-blue-500/30 text-white'
                             }`}
+                        style={{
+                            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
+                        }}
                     >
-                        <span className="material-symbols-outlined font-bold">
-                            {
-                                toast.type === 'success' ? 'check_circle' :
-                                    toast.type === 'error' ? 'error' :
-                                        toast.type === 'warning' ? 'warning' : 'info'
-                            }
-                        </span>
-                        <p className="font-bold text-sm flex-1">{toast.message}</p>
-                        <button onClick={() => removeToast(toast.id)} className="opacity-70 hover:opacity-100">
-                            <span className="material-symbols-outlined text-sm">close</span>
+                        <div className={`p-1.5 rounded-lg flex items-center justify-center ${toast.type === 'success' ? 'bg-white/10 text-white' :
+                                toast.type === 'error' ? 'bg-red-400/20 text-red-400' :
+                                    toast.type === 'warning' ? 'bg-amber-400/20 text-amber-400' :
+                                        'bg-blue-400/20 text-blue-400'
+                            }`}>
+                            <span className="material-symbols-outlined text-[18px] opacity-80">
+                                {
+                                    toast.type === 'success' ? 'check_circle' :
+                                        toast.type === 'error' ? 'error' :
+                                            toast.type === 'warning' ? 'warning' : 'info'
+                                }
+                            </span>
+                        </div>
+                        <p className="text-[13px] font-semibold flex-1 leading-tight text-white/90">{toast.message}</p>
+                        <button
+                            onClick={() => removeToast(toast.id)}
+                            className="p-1 hover:bg-white/10 rounded-full transition-colors"
+                        >
+                            <span className="material-symbols-outlined text-[18px] opacity-40">close</span>
                         </button>
                     </div>
                 ))}

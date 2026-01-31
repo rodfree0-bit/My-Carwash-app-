@@ -63,7 +63,28 @@ const AddCardForm: React.FC<{ onSuccess: () => void, onClose: () => void }> = ({
             }
         } catch (err: any) {
             console.error('Save Card Error:', err);
-            setError(err.message || 'Failed to save card');
+            const errorMessage = err.message || 'Failed to save card';
+
+            // SELF-HEALING: If Stripe says customer doesn't exist (mismatch), clear it from DB
+            if (errorMessage.includes('No such customer')) {
+                console.warn('⚠️ Detected invalid Stripe Customer ID. healing...');
+                try {
+                    const { db, auth } = await import('../firebase');
+                    const { doc, updateDoc } = await import('firebase/firestore');
+
+                    if (auth.currentUser) {
+                        const userRef = doc(db, 'users', auth.currentUser.uid);
+                        await updateDoc(userRef, { stripeCustomerId: null });
+                        setError('Account synchronized. Please try adding the card again.');
+                        setProcessing(false);
+                        return;
+                    }
+                } catch (healingError) {
+                    console.error('Failed to heal customer ID:', healingError);
+                }
+            }
+
+            setError(errorMessage);
             setProcessing(false);
         }
     };

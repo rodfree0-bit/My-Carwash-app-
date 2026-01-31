@@ -257,7 +257,7 @@ export const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClos
                     )}
                     <button
                         onClick={handleSave}
-                        disabled={!newVehicle.model || !newVehicle.year || !newVehicle.color}
+                        disabled={!newVehicle.model || !newVehicle.year || !newVehicle.color || !newVehicle.make}
                         className="flex-1 h-14 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-blue"
                     >
                         <span className="material-symbols-outlined">check</span>

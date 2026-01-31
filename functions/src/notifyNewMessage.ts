@@ -67,7 +67,7 @@ export const notifyNewMessage = functions.firestore
                 android: {
                     priority: 'high',
                     notification: {
-                        channelId: 'default', // Make sure app channel matches or is 'default'
+                        channelId: 'general', // Make sure app channel matches
                         priority: 'high',
                         sound: 'default'
                     }

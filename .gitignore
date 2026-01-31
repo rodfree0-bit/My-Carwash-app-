@@ -91,3 +91,4 @@ seed-database.mjs
 test-notification.js
 test-push-notification.mjs
 createSuperAdmin.js
+last_log.txt

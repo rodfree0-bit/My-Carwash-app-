@@ -189,7 +189,7 @@ export interface Order {
   review?: string; // Washer review (for analytics feedback)
   receiptUrl?: string; // URL to generated receipt (PDF or HTML)
   receiptSentAt?: number; // Timestamp when receipt was emailed
-  paymentMethod?: 'stripe' | 'card' | 'apple_pay' | 'google_pay' | 'cash_app' | { last4: string; brand: string } | null; // Payment method used
+  paymentMethod?: 'stripe' | 'card' | 'apple_pay' | 'google_pay' | 'cash_app' | 'cash' | { last4: string; brand: string } | null; // Payment method used
   stripePaymentMethodId?: string; // ID of the Stripe PaymentMethod used
   authorizedAmount?: number; // Amount authorized (hold)
   capturedAmount?: number; // Amount actually charged (base + tip)
@@ -553,6 +553,7 @@ export interface AndroidInterface {
   shareText(text: string, title: string): void;
   showConfirmationDialog(title: string, message: string, callbackName: string): void;
   setUserId(uid: string): void;
+  getFCMToken(): void;
   requestFCMToken(): void;
   getUserToken(callback: string): void;
   logout(): void;

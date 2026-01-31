@@ -92,7 +92,7 @@ export const translations = {
         cancel_order_warn: 'Cancel order? Your rating will decrease and this cannot be undone.',
         password_min_length: 'Your password must be at least 6 characters long',
         photo_updated: 'Photo updated successfully!',
-        photo_updated_es: '¡Foto actualizada correctamente!',
+        photo_updated_es: 'Photo updated successfully!',
         photo_upload_failed: 'Failed to upload photo',
         profile_updated: 'Profile updated successfully!',
         profile_update_failed: 'Failed to update profile',
@@ -167,7 +167,6 @@ export const translations = {
         view_all: 'View All',
         no_active_jobs: 'No Active Jobs',
         no_assigned_jobs: 'You have no jobs assigned at this moment.',
-        ganancias: 'Earnings',
 
         // Client Profile
         edit_profile: 'Edit Profile',
@@ -385,7 +384,6 @@ export const translations = {
         view_all: 'View All',
         no_active_jobs: 'No Active Jobs',
         no_assigned_jobs: 'You have no jobs assigned at this moment.',
-        ganancias: 'Earnings',
 
         // Client Profile
         edit_profile: 'Edit Profile',

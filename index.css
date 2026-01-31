@@ -14,6 +14,16 @@
 }
 
 /* stylelint-disable */
+html,
+body,
+#root {
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  /* Prevent body-level scroll to avoid issues with fixed headers/footers */
+}
+
 body {
   background-color: #101822;
   color: white;
@@ -22,7 +32,14 @@ body {
   -webkit-touch-callout: none;
   user-select: none;
   overscroll-behavior-y: none;
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color-scheme: dark;
+  /* Safe Area Support */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 input,
@@ -37,9 +54,17 @@ textarea {
 /* --- Premium Animations --- */
 
 @keyframes kenburns {
-  0% { transform: scale(1) translate(0, 0); }
-  50% { transform: scale(1.1) translate(-1%, -1%); }
-  100% { transform: scale(1) translate(0, 0); }
+  0% {
+    transform: scale(1) translate(0, 0);
+  }
+
+  50% {
+    transform: scale(1.1) translate(-1%, -1%);
+  }
+
+  100% {
+    transform: scale(1) translate(0, 0);
+  }
 }
 
 @keyframes fade-in-up {
@@ -47,6 +72,7 @@ textarea {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);

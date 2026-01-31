@@ -39,7 +39,15 @@ async function sendNotification(userId, title, body, data = {}) {
         const message = {
             notification: { title: title, body: body },
             token: fcmToken,
-            data: data
+            data: data,
+            android: {
+                priority: 'high',
+                notification: {
+                    channelId: ['new_order', 'order_assigned', 'order_update', 'order_cancelled'].includes(data.type) ? 'orders' : 'general',
+                    priority: 'high',
+                    sound: 'default'
+                }
+            }
         };
         const response = await getMessaging().send(message);
         console.log(`✅ Notification sent to ${userId}:`, response);

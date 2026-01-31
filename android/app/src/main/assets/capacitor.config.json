@@ -1,29 +1,18 @@
 {
 	"appId": "com.rodrigo.mycarwash.app",
-	"appName": "My Carwash: On-Demand Detail",
+	"appName": "My Carwash",
 	"webDir": "dist",
 	"server": {
-		"androidScheme": "https",
+		"url": "https://my-carwashapp-e6aba.web.app/",
+		"cleartext": true,
 		"allowNavigation": [
-			"https://www.google.com/*",
-			"https://maps.google.com/*",
-			"https://maps.apple.com/*"
+			"my-carwashapp-e6aba.web.app",
+			"*.firebaseapp.com",
+			"*.googleapis.com",
+			"*.gstatic.com"
 		]
 	},
 	"plugins": {
-		"SplashScreen": {
-			"launchShowDuration": 2000,
-			"launchAutoHide": true,
-			"backgroundColor": "#0a0a0a",
-			"androidSplashResourceName": "splash",
-			"androidScaleType": "CENTER_CROP",
-			"showSpinner": false,
-			"androidSpinnerStyle": "large",
-			"iosSpinnerStyle": "small",
-			"spinnerColor": "#3b82f6",
-			"splashFullScreen": true,
-			"splashImmersive": true
-		},
 		"PushNotifications": {
 			"presentationOptions": [
 				"badge",
@@ -31,8 +20,17 @@
 				"alert"
 			]
 		},
-		"CapacitorHttp": {
-			"enabled": true
+		"SplashScreen": {
+			"launchShowDuration": 2000,
+			"backgroundColor": "#0F172A",
+			"showSpinner": true,
+			"androidSpinnerStyle": "large",
+			"spinnerColor": "#3B82F6"
 		}
+	},
+	"android": {
+		"allowMixedContent": true,
+		"captureInput": true,
+		"webContentsDebuggingEnabled": true
 	}
 }

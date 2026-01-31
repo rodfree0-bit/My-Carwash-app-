@@ -14,6 +14,21 @@ class UnifiedNotificationService {
     // Set user ID for saving tokens
     setUserId(id: string) {
         this.userId = id;
+
+        // Also sync with native bridge if it exists
+        if ((window as any).Android && (window as any).Android.setUserId) {
+            console.log('🔑 Syncing UserID with Native bridge:', id);
+            (window as any).Android.setUserId(id);
+        }
+
+        // Check for pending token
+        if (typeof window !== 'undefined') {
+            const pendingToken = localStorage.getItem('pending_fcm_token');
+            if (pendingToken) {
+                console.log('📝 Found pending FCM token, saving now...');
+                this.saveToken(pendingToken);
+            }
+        }
     }
 
     async initialize(userId?: string) {
@@ -36,49 +51,147 @@ class UnifiedNotificationService {
         return this.initializeNative();
     }
 
+    // Check permission status without requesting
+    async checkPermissionStatus(): Promise<{
+        granted: boolean;
+        canRequest: boolean;
+    }> {
+        if (!this.isNative) {
+            return { granted: false, canRequest: false };
+        }
+
+        const permStatus = await PushNotifications.checkPermissions();
+        return {
+            granted: permStatus.receive === 'granted',
+            canRequest: permStatus.receive === 'prompt'
+        };
+    }
+
+    // Request permissions if needed
+    async requestPermissionsIfNeeded(): Promise<boolean> {
+        // Use custom bridge if available
+        if ((window as any).Android && (window as any).Android.requestNotificationPermission) {
+            console.log('📱 Requesting notification permissions via Native Bridge...');
+            (window as any).Android.requestNotificationPermission();
+            return true; // Assume true as bridge handles result asynchronously
+        }
+
+        if (!this.isNative) return false;
+
+        const status = await this.checkPermissionStatus();
+
+        if (status.granted) {
+            console.log('✅ Notification permissions already granted');
+            return true;
+        }
+
+        if (status.canRequest) {
+            console.log('📱 Requesting notification permissions...');
+            const result = await PushNotifications.requestPermissions();
+            const granted = result.receive === 'granted';
+
+            if (granted) {
+                console.log('✅ Notification permissions granted');
+                // Re-register to get token
+                await PushNotifications.register();
+            } else {
+                console.log('❌ Notification permissions denied');
+            }
+
+            return granted;
+        }
+
+        console.log('❌ Notification permissions denied or restricted');
+        return false;
+    }
+
     private async initializeNative() {
-        console.log('🔔 Initializing native push notifications...');
-
-        // Request permission
-        let permStatus = await PushNotifications.checkPermissions();
-
-        if (permStatus.receive === 'prompt') {
-            permStatus = await PushNotifications.requestPermissions();
-        }
-
-        if (permStatus.receive !== 'granted') {
-            console.log('❌ Push notification permission denied');
-            return null;
-        }
-
-        // Register with Apple / Google to receive push via APNS/FCM
-        await PushNotifications.register();
-
         if (!this.initialized) {
+            // 1. ADD LISTENERS BEFORE REGISTERING
             // Listen for registration
-            await PushNotifications.addListener('registration', (token: Token) => {
+            PushNotifications.addListener('registration', (token: Token) => {
                 console.log('✅ Native Push registration success, token:', token.value);
                 this.saveToken(token.value);
             });
 
             // Listen for registration errors
-            await PushNotifications.addListener('registrationError', (error: any) => {
+            PushNotifications.addListener('registrationError', (error: any) => {
                 console.error('❌ Error on registration:', error);
             });
 
             // Show us the notification payload if the app is open on our device
-            await PushNotifications.addListener('pushNotificationReceived', (notification: PushNotificationSchema) => {
+            PushNotifications.addListener('pushNotificationReceived', (notification: PushNotificationSchema) => {
                 console.log('📬 Push notification received:', notification);
                 this.handleNotificationReceived(notification);
             });
 
             // Method called when tapping on a notification
-            await PushNotifications.addListener('pushNotificationActionPerformed', (notification: ActionPerformed) => {
+            PushNotifications.addListener('pushNotificationActionPerformed', (notification: ActionPerformed) => {
                 console.log('👆 Push notification action performed:', notification);
                 this.handleNotificationTapped(notification);
             });
 
             this.initialized = true;
+        }
+
+        console.log('🔔 Initializing native push notifications...');
+
+        // Set up bridge callbacks for Android
+        if (typeof window !== 'undefined') {
+            (window as any).onFCMTokenReceived = (token: string) => {
+                console.log('📨 FCM Token Received from Android:', token);
+                this.saveToken(token);
+            };
+
+            (window as any).onPermissionResult = (permission: string, granted: boolean) => {
+                console.log(`📡 Permission result for ${permission}: ${granted}`);
+                if (permission === 'notifications' && granted) {
+                    if ((window as any).Android && (window as any).Android.getFCMToken) {
+                        (window as any).Android.getFCMToken();
+                    }
+                }
+            };
+
+            // If bridge exists, request token immediately
+            if ((window as any).Android && (window as any).Android.getFCMToken) {
+                console.log('📲 Requesting FCM token update from Android...');
+                (window as any).Android.getFCMToken();
+            }
+        }
+
+        // Only register via Capacitor if the bridge didn't handle it
+        if (!((window as any).Android && (window as any).Android.getFCMToken)) {
+            console.log('📱 Calling PushNotifications.register() as fallback...');
+            try {
+                // Create a channel for Android to ensure foreground notifications can show
+                if (this.isNative && Capacitor.getPlatform() === 'android') {
+                    // Create main orders channel
+                    await PushNotifications.createChannel({
+                        id: 'orders',
+                        name: 'Orders & Status',
+                        description: 'Notifications about your car wash orders',
+                        importance: 5, // Max importance
+                        visibility: 1,
+                        sound: 'default',
+                        vibration: true,
+                    });
+
+                    // Create general channel
+                    await PushNotifications.createChannel({
+                        id: 'general',
+                        name: 'General',
+                        description: 'General app notifications',
+                        importance: 3,
+                        visibility: 1,
+                        sound: 'default',
+                        vibration: true,
+                    });
+                    console.log('✅ Notification channels created (orders, general)');
+                }
+                await PushNotifications.register();
+            } catch (e) {
+                console.error('❌ Error during PushNotifications.register():', e);
+            }
         }
 
         return true;
@@ -94,18 +207,33 @@ class UnifiedNotificationService {
     private async saveToken(token: string) {
         if (!this.userId) {
             console.warn('⚠️ Cannot save FCM token: No User ID set');
-            // Store temporarily?
+            console.warn('📝 Token will be saved once user logs in');
+            // Store temporarily in localStorage
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('pending_fcm_token', token);
+            }
             return;
         }
 
-        // Save token to Firestore for the current user
-        console.log('💾 Saving FCM token to Firestore for user:', this.userId);
+        console.log('💾 Saving FCM token to Firestore...');
+        console.log('👤 User ID:', this.userId);
+        console.log('🔑 Token (first 20 chars):', token.substring(0, 20) + '...');
+
         try {
             const userRef = doc(db, 'users', this.userId);
-            await updateDoc(userRef, { fcmToken: token });
+            await updateDoc(userRef, {
+                fcmToken: token,
+                fcmTokenUpdatedAt: new Date().toISOString()
+            });
             console.log('✅ FCM token saved successfully');
+
+            // Clear pending token
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem('pending_fcm_token');
+            }
         } catch (error) {
             console.error('❌ Error saving FCM token to Firestore:', error);
+            throw error;
         }
     }
 
@@ -159,16 +287,30 @@ class UnifiedNotificationService {
         }
     }
 
-    // Send notification (this should be called from backend mainly, but helper kept for ref)
-    async sendNotification(userId: string, title: string, body: string, data?: any) {
-        // Client-side simulation only
-        if (!this.isNative && 'Notification' in window && Notification.permission === 'granted') {
-            new Notification(title, {
-                body,
-                icon: '/logo.png',
-                data,
-            });
+    // Send test notification (for debugging)
+    async sendTestNotification(): Promise<void> {
+        console.log('🧪 Sending test notification...');
+
+        if (this.userId) {
+            try {
+                const userRef = doc(db, 'users', this.userId);
+                const userDoc = await import('firebase/firestore').then(m => m.getDoc(userRef));
+                if (userDoc.exists()) {
+                    const fcmToken = userDoc.data().fcmToken;
+                    if (fcmToken) {
+                        console.log('✅ Token found and ready');
+                    } else {
+                        console.warn('⚠️ No FCM token found');
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Error checking FCM token:', error);
+            }
         }
+    }
+
+    async sendNotification(userId: string, title: string, body: string, data?: any) {
+        // simulation
     }
 }
 

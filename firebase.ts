@@ -1,8 +1,8 @@
 import { initializeApp } from 'firebase/app';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache } from 'firebase/firestore';
 import { getAnalytics } from 'firebase/analytics';
-import { getMessaging } from 'firebase/messaging';
-import { getAuth } from 'firebase/auth';
+import { getMessaging, isSupported } from 'firebase/messaging';
+import { getAuth, browserLocalPersistence, setPersistence } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
 
@@ -17,16 +17,32 @@ const firebaseConfig = {
 };
 
 export const app = initializeApp(firebaseConfig);
-// export const db = initializeFirestore(app, {
-//   localCache: persistentLocalCache({
-//     tabManager: persistentMultipleTabManager()
-//   })
-// });
-// TEMPORARY: Disable persistence to clear deletions
-export const db = initializeFirestore(app, {});
+
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({})
+});
+
 export const analytics = getAnalytics(app);
-export const messaging = getMessaging(app);
+
+// Initialize messaging safely for WebView
+let msg: any = null;
+isSupported().then(supported => {
+  if (supported) {
+    msg = getMessaging(app);
+    console.log("📨 Firebase Messaging initialized");
+  } else {
+    console.warn("⚠️ Firebase Messaging not supported in this environment");
+  }
+}).catch(err => console.warn("⚠️ Error checking Messaging support:", err));
+
+export const messaging = msg;
 export const auth = getAuth(app);
+
+// Enforce local persistence so the session survives app restarts
+setPersistence(auth, browserLocalPersistence).catch(err => {
+  console.error('❌ Error setting Auth persistence:', err);
+});
+
 export const storage = getStorage(app);
 console.log("🔥 Initializing Firebase Functions in region: us-central1");
 export const functions = getFunctions(app, 'us-central1');

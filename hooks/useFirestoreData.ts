@@ -41,19 +41,21 @@ export const useFirestoreData = (user?: any, role?: string) => {
                 (snapshot) => {
                     try {
                         const packagesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ServicePackage));
-                        console.log('📦 FIRESTORE: Loaded packages:', packagesData.length, packagesData);
+                        console.log('📦 FIRESTORE: Loaded packages:', packagesData.length);
                         setPackages(packagesData);
                         setPackagesError(null);
                     } catch (error: any) {
                         console.error('❌ Error processing packages:', error);
                         setPackagesError(error.message || 'Error processing packages');
-                        setPackages([]); // Fallback to empty array
                     }
                 },
                 (error) => {
+                    if (error.code === 'already-exists' || error.message?.includes('Target ID already exists')) {
+                        console.warn('⚠️ Firestore glitch: Target ID already exists (Packages). Data should still sync.');
+                        return;
+                    }
                     console.error('❌ Error loading packages from Firestore:', error);
                     setPackagesError(error.message || 'Error loading packages from Firestore');
-                    setPackages([]); // Fallback to empty array
                 }
             );
 
@@ -65,12 +67,11 @@ export const useFirestoreData = (user?: any, role?: string) => {
                         setAddons(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ServiceAddon)));
                     } catch (error) {
                         console.error('❌ Error processing addons:', error);
-                        setAddons([]);
                     }
                 },
                 (error) => {
+                    if (error.code === 'already-exists' || error.message?.includes('Target ID already exists')) return;
                     console.error('❌ Error loading addons:', error);
-                    setAddons([]);
                 }
             );
 
@@ -81,12 +82,11 @@ export const useFirestoreData = (user?: any, role?: string) => {
                         setVehicleTypes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
                     } catch (error) {
                         console.error('❌ Error processing vehicle types:', error);
-                        setVehicleTypes([]);
                     }
                 },
                 (error) => {
+                    if (error.code === 'already-exists' || error.message?.includes('Target ID already exists')) return;
                     console.error('❌ Error loading vehicle types:', error);
-                    setVehicleTypes([]);
                 }
             );
 
@@ -102,6 +102,7 @@ export const useFirestoreData = (user?: any, role?: string) => {
                     }
                 },
                 (error) => {
+                    if (error.code === 'already-exists' || error.message?.includes('Target ID already exists')) return;
                     console.error('❌ Error loading service area:', error);
                 }
             );
@@ -202,27 +203,48 @@ export const useFirestoreData = (user?: any, role?: string) => {
         };
     }, [user?.uid, role, last3Months]);
 
-    // 3. USERS (Admin Only - Limited)
+    // 3. USERS (Local Profile Sync + Admin View)
     useEffect(() => {
-        if (!user || role !== 'admin') {
-            setClients([]);
-            setTeam([]);
-            return;
+        if (!user?.uid) return;
+
+        // A. Always sync the current user's OWN document
+        const unsubSelf = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
+            if (snapshot.exists()) {
+                const userData = { id: snapshot.id, ...snapshot.data() } as any;
+                if (userData.role === 'admin' || userData.role === 'washer') {
+                    setTeam(prev => {
+                        const others = prev.filter(t => t.id !== userData.id);
+                        return [...others, userData];
+                    });
+                } else {
+                    setClients(prev => {
+                        const others = prev.filter(c => c.id !== userData.id);
+                        return [...others, userData];
+                    });
+                }
+            }
+        });
+
+        // B. If Admin, sync the whole collection (limited)
+        let unsubAll = () => { };
+        if (role === 'admin') {
+            const q = query(collection(db, 'users'), limit(500));
+            unsubAll = onSnapshot(q,
+                (snapshot) => {
+                    const allUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+                    setTeam(allUsers.filter(u => u.role === 'admin' || u.role === 'washer'));
+                    setClients(allUsers.filter(u => u.role === 'client' || !u.role));
+                },
+                (error) => {
+                    console.error('❌ Error loading users (Admin):', error);
+                }
+            );
         }
 
-        const q = query(collection(db, 'users'), limit(500));
-        const unsub = onSnapshot(q,
-            (snapshot) => {
-                const allUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-                setTeam(allUsers.filter(u => u.role === 'admin' || u.role === 'washer'));
-                setClients(allUsers.filter(u => u.role === 'client' || !u.role));
-            },
-            (error) => {
-                console.error('❌ Error loading users (Admin):', error);
-            }
-        );
-
-        return unsub;
+        return () => {
+            unsubSelf();
+            unsubAll();
+        };
     }, [user?.uid, role]);
 
     // 4. MESSAGES & NOTIFICATIONS (Last 7 Days Only)
@@ -401,10 +423,15 @@ export const useFirestoreData = (user?: any, role?: string) => {
         };
     }, [user?.uid, role]);
 
-    return {
+    return useMemo(() => ({
         orders, clients, team, packages, packagesError, addons, vehicleTypes,
         discounts, deductions, bonuses, payments, payrollPeriods, issues,
         messages, notifications, serviceArea, washerApplications,
         loading
-    };
+    }), [
+        orders, clients, team, packages, packagesError, addons, vehicleTypes,
+        discounts, deductions, bonuses, payments, payrollPeriods, issues,
+        messages, notifications, serviceArea, washerApplications,
+        loading
+    ]);
 };

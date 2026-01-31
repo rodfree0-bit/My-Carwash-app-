@@ -27,6 +27,8 @@ import { TaxReportsScreen } from './admin/TaxReportsScreen';
 import { AdminOrderPhotos } from './admin/AdminOrderPhotos';
 import { FleetQuotesScreen } from './admin/FleetQuotesScreen';
 import { StripeService } from '../services/StripeService';
+import { ConfirmationModal } from './ConfirmationModal';
+import { NotificationTest } from './NotificationTest';
 
 interface AdminProps {
     screen: Screen;
@@ -122,15 +124,20 @@ export const AdminScreens: React.FC<AdminProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
 
     const handleDeleteClient = async (id: string) => {
-        if (window.confirm('Delete this client?')) {
-            try {
-                await deleteUser(id);
-                showToast('Client deleted successfully', 'success');
-            } catch (error) {
-                console.error('Error deleting client:', error);
-                showToast('Failed to delete client', 'error');
-            }
-        }
+        showConfirm(
+            'Delete Client',
+            'Delete this client?',
+            async () => {
+                try {
+                    await deleteUser(id);
+                    showToast('Client deleted successfully', 'success');
+                } catch (error) {
+                    console.error('Error deleting client:', error);
+                    showToast('Failed to delete client', 'error');
+                }
+            },
+            'danger'
+        );
     };
     const [isUploading, setIsUploading] = useState(false);
     const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month' | 'year' | 'all'>('week');
@@ -144,6 +151,7 @@ export const AdminScreens: React.FC<AdminProps> = ({
     const [tempVehiclePrices, setTempVehiclePrices] = useState<Record<string, number>>({});
     const [showTypeSelectionModal, setShowTypeSelectionModal] = useState(false);
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+    const [showNotificationTest, setShowNotificationTest] = useState(false);
     const [newMemberData, setNewMemberData] = useState<{
         id?: string;
         name: string;
@@ -175,6 +183,36 @@ export const AdminScreens: React.FC<AdminProps> = ({
     const [dashboardTab, setDashboardTab] = useState<'live' | 'history'>('live');
     const [teamTab, setTeamTab] = useState<'active' | 'pending'>('active');
     const [selectedWasherId, setSelectedWasherId] = useState<string>('');
+
+    // Confirmation Modal State
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        type?: 'danger' | 'primary';
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+        type: 'primary'
+    });
+
+    const showConfirm = (title: string, message: string, onConfirm: () => void, type: 'danger' | 'primary' = 'primary') => {
+        setConfirmModal({
+            isOpen: true,
+            title,
+            message,
+            onConfirm: () => {
+                onConfirm();
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            },
+            type
+        });
+    };
+
+    const closeConfirm = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
 
     // Global Fees State
     const [globalFees, setGlobalFees] = useState<{ name: string, percentage: number }[]>([{ name: 'App Commission', percentage: 20 }]);
@@ -581,10 +619,15 @@ export const AdminScreens: React.FC<AdminProps> = ({
     };
 
     const handleDeleteItem = (id: string) => {
-        if (window.confirm('Delete item?')) {
-            if (pricingTab === 'packages') onDeletePackage(id);
-            else onDeleteAddon(id);
-        }
+        showConfirm(
+            'Delete Item',
+            'Delete item?',
+            () => {
+                if (pricingTab === 'packages') onDeletePackage(id);
+                else onDeleteAddon(id);
+            },
+            'danger'
+        );
     };
 
     const startAddNew = () => setShowTypeSelectionModal(true);
@@ -689,28 +732,33 @@ export const AdminScreens: React.FC<AdminProps> = ({
     };
 
     const handleCancelOrder = (orderId: string) => {
-        if (window.confirm('⚠️ CANCEL ORDER\n\nAre you sure you want to cancel this order?\n\nThis action cannot be undone.')) {
-            try {
-                cancelOrder(orderId);
-                showToast('Order cancelled successfully', 'success');
+        showConfirm(
+            'Cancel Order',
+            '⚠️ CANCEL ORDER\n\nAre you sure you want to cancel this order?\n\nThis action cannot be undone.',
+            () => {
+                try {
+                    cancelOrder(orderId);
+                    showToast('Order cancelled successfully', 'success');
 
-                // Notify client
-                const order = orders.find(o => o.id === orderId);
-                if (order) {
-                    const client = clients.find(c => c.name === order.clientName);
-                    if (client) {
-                        addNotification(
-                            client.id,
-                            'Order Cancelled',
-                            `Your order ${orderId} has been cancelled by admin`,
-                            'info'
-                        );
+                    // Notify client
+                    const order = orders.find(o => o.id === orderId);
+                    if (order) {
+                        const client = clients.find(c => c.name === order.clientName);
+                        if (client) {
+                            addNotification(
+                                client.id,
+                                'Order Cancelled',
+                                `Your order ${orderId} has been cancelled by admin`,
+                                'info'
+                            );
+                        }
                     }
+                } catch (error) {
+                    showToast('Error cancelling order', 'error');
                 }
-            } catch (error) {
-                showToast('Error cancelling order', 'error');
-            }
-        }
+            },
+            'danger'
+        );
     };
 
     const getClientHistory = (clientName: string) => {
@@ -1088,9 +1136,14 @@ export const AdminScreens: React.FC<AdminProps> = ({
                                                 )}
                                                 {order.status !== 'Pending' && order.status !== 'Completed' && (
                                                     <button onClick={() => {
-                                                        if (window.confirm('Are you sure you want to force complete this order? The client will be notified.')) {
-                                                            updateOrder(order.id, { status: 'Completed' });
-                                                        }
+                                                        showConfirm(
+                                                            'Force Complete Order',
+                                                            'Are you sure you want to force complete this order? The client will be notified.',
+                                                            () => {
+                                                                updateOrder(order.id, { status: 'Completed' });
+                                                            },
+                                                            'primary'
+                                                        );
                                                     }} className="text-xs text-green-400 hover:text-green-300 font-bold border border-green-500/30 px-2 py-1.5 rounded">Force Complete</button>
                                                 )}
                                                 {order.status !== 'Cancelled' && order.status !== 'Completed' && (
@@ -1513,34 +1566,39 @@ export const AdminScreens: React.FC<AdminProps> = ({
                                                     ? `Process refund of $${viewingOrderDetails.price} to the client?\n\nThis will refund the payment through Stripe and cannot be undone.`
                                                     : `Mark this order as refunded?\n\nNote: This order was not paid through Stripe, so no automatic refund will be processed. You may need to handle the refund manually.`;
 
-                                                if (window.confirm(confirmMessage)) {
-                                                    try {
-                                                        showToast('Processing refund...', 'info');
+                                                showConfirm(
+                                                    isPaid && paymentId ? 'Process Refund' : 'Mark as Refunded',
+                                                    confirmMessage,
+                                                    async () => {
+                                                        try {
+                                                            showToast('Processing refund...', 'info');
 
-                                                        if (isPaid && paymentId) {
-                                                            // Process actual Stripe refund
-                                                            const result = await StripeService.refundPayment(
-                                                                viewingOrderDetails.id,
-                                                                paymentId,
-                                                                'Admin initiated refund'
-                                                            );
-                                                            showToast(`Refund successful! $${result.amount} refunded.`, 'success');
-                                                        } else {
-                                                            // Manual refund - just update the order status
-                                                            await updateOrder(viewingOrderDetails.id, {
-                                                                paymentStatus: 'Refunded',
-                                                                refundedAt: new Date(),
-                                                                refundReason: 'Manual admin refund (no Stripe payment)'
-                                                            } as any);
-                                                            showToast('Order marked as refunded', 'success');
+                                                            if (isPaid && paymentId) {
+                                                                // Process actual Stripe refund
+                                                                const result = await StripeService.refundPayment(
+                                                                    viewingOrderDetails.id,
+                                                                    paymentId,
+                                                                    'Admin initiated refund'
+                                                                );
+                                                                showToast(`Refund successful! $${result.amount} refunded.`, 'success');
+                                                            } else {
+                                                                // Manual refund - just update the order status
+                                                                await updateOrder(viewingOrderDetails.id, {
+                                                                    paymentStatus: 'Refunded',
+                                                                    refundedAt: new Date(),
+                                                                    refundReason: 'Manual admin refund (no Stripe payment)'
+                                                                } as any);
+                                                                showToast('Order marked as refunded', 'success');
+                                                            }
+
+                                                            setViewingOrderDetails(null);
+                                                        } catch (error: any) {
+                                                            console.error('Refund error:', error);
+                                                            showToast(error.message || 'Failed to process refund', 'error');
                                                         }
-
-                                                        setViewingOrderDetails(null);
-                                                    } catch (error: any) {
-                                                        console.error('Refund error:', error);
-                                                        showToast(error.message || 'Failed to process refund', 'error');
-                                                    }
-                                                }
+                                                    },
+                                                    'danger'
+                                                );
                                             }}
                                             className="flex-1 py-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 font-bold transition-colors flex items-center justify-center gap-2"
                                         >
@@ -1552,26 +1610,31 @@ export const AdminScreens: React.FC<AdminProps> = ({
                                         {viewingOrderDetails.status !== 'Completed' && viewingOrderDetails.status !== 'Cancelled' && (
                                             <button
                                                 onClick={() => {
-                                                    if (window.confirm('Force Complete?')) {
-                                                        // Update order status
-                                                        updateOrder(viewingOrderDetails.id, { status: 'Completed' });
+                                                    showConfirm(
+                                                        'Force Complete',
+                                                        'Force Complete?',
+                                                        () => {
+                                                            // Update order status
+                                                            updateOrder(viewingOrderDetails.id, { status: 'Completed' });
 
-                                                        // Award Loyalty Points
-                                                        if (viewingOrderDetails.clientId) {
-                                                            addLoyaltyPoints(viewingOrderDetails.clientId)
-                                                                .then((points) => {
-                                                                    if (points > 0) {
-                                                                        showToast(`Order completed & ${points} loyalty points awarded!`, 'success');
-                                                                    } else {
-                                                                        showToast('Order completed', 'success');
-                                                                    }
-                                                                });
-                                                        } else {
-                                                            showToast('Order completed', 'success');
-                                                        }
+                                                            // Award Loyalty Points
+                                                            if (viewingOrderDetails.clientId) {
+                                                                addLoyaltyPoints(viewingOrderDetails.clientId)
+                                                                    .then((points) => {
+                                                                        if (points > 0) {
+                                                                            showToast(`Order completed & ${points} loyalty points awarded!`, 'success');
+                                                                        } else {
+                                                                            showToast('Order completed', 'success');
+                                                                        }
+                                                                    });
+                                                            } else {
+                                                                showToast('Order completed', 'success');
+                                                            }
 
-                                                        setViewingOrderDetails(null);
-                                                    }
+                                                            setViewingOrderDetails(null);
+                                                        },
+                                                        'primary'
+                                                    );
                                                 }}
                                                 className="flex-1 py-3 rounded-xl bg-green-500 text-black font-bold hover:bg-green-400 transition-colors"
                                             >
@@ -1828,24 +1891,29 @@ export const AdminScreens: React.FC<AdminProps> = ({
 
                                         <button
                                             onClick={async () => {
-                                                if (window.confirm(`⚠️ Promote ${viewingClientHistory.name} to Admin? This gives full access to the system.`)) {
-                                                    updateUserProfile(viewingClientHistory.id, { role: 'admin', status: 'Active' });
+                                                showConfirm(
+                                                    'Promote to Admin',
+                                                    `⚠️ Promote ${viewingClientHistory.name} to Admin? This gives full access to the system.`,
+                                                    async () => {
+                                                        updateUserProfile(viewingClientHistory.id, { role: 'admin', status: 'Active' });
 
-                                                    // Send email notification
-                                                    try {
-                                                        const { NotificationService } = await import('../services/NotificationService');
-                                                        await NotificationService.sendEmail(
-                                                            viewingClientHistory.email,
-                                                            '🎉 You Are Now an Administrator',
-                                                            `Hi ${viewingClientHistory.name},\n\nYou have been promoted to Administrator in our car wash system!\n\nYou can now log in to the Admin Panel using your existing credentials:\n\nEmail: ${viewingClientHistory.email}\n\nSimply log in to our app and you'll automatically be directed to the Admin Dashboard where you have full access to manage the system.\n\nBest regards,\nThe Car Wash Team`
-                                                        );
-                                                    } catch (error) {
-                                                        console.error('Error sending email:', error);
-                                                    }
+                                                        // Send email notification
+                                                        try {
+                                                            const { NotificationService } = await import('../services/NotificationService');
+                                                            await NotificationService.sendEmail(
+                                                                viewingClientHistory.email,
+                                                                '🎉 You Are Now an Administrator',
+                                                                `Hi ${viewingClientHistory.name},\n\nYou have been promoted to Administrator in our car wash system!\n\nYou can now log in to the Admin Panel using your existing credentials:\n\nEmail: ${viewingClientHistory.email}\n\nSimply log in to our app and you'll automatically be directed to the Admin Dashboard where you have full access to manage the system.\n\nBest regards,\nThe Car Wash Team`
+                                                            );
+                                                        } catch (error) {
+                                                            console.error('Error sending email:', error);
+                                                        }
 
-                                                    showToast(`${viewingClientHistory.name} is now an Admin! Email sent.`, 'success');
-                                                    setViewingClientHistory(null);
-                                                }
+                                                        showToast(`${viewingClientHistory.name} is now an Admin! Email sent.`, 'success');
+                                                        setViewingClientHistory(null);
+                                                    },
+                                                    'danger'
+                                                );
                                             }}
                                             className="flex items-center justify-center gap-2 p-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-lg transition-colors"
                                         >
@@ -1858,11 +1926,16 @@ export const AdminScreens: React.FC<AdminProps> = ({
                                         <div className="space-y-2 mt-2">
                                             <button
                                                 onClick={() => {
-                                                    if (window.confirm(`Demote ${viewingClientHistory.name} back to Client?`)) {
-                                                        updateUserProfile(viewingClientHistory.id, { role: 'client' });
-                                                        showToast(`${viewingClientHistory.name} is now a Client`, 'info');
-                                                        setViewingClientHistory(null);
-                                                    }
+                                                    showConfirm(
+                                                        'Demote to Client',
+                                                        `Demote ${viewingClientHistory.name} back to Client?`,
+                                                        () => {
+                                                            updateUserProfile(viewingClientHistory.id, { role: 'client' });
+                                                            showToast(`${viewingClientHistory.name} is now a Client`, 'info');
+                                                            setViewingClientHistory(null);
+                                                        },
+                                                        'primary'
+                                                    );
                                                 }}
                                                 className="w-full flex items-center justify-center gap-2 p-3 bg-slate-500/10 hover:bg-slate-500/20 border border-slate-500/30 rounded-lg transition-colors"
                                             >
@@ -1871,11 +1944,16 @@ export const AdminScreens: React.FC<AdminProps> = ({
                                             </button>
                                             <button
                                                 onClick={() => {
-                                                    if (window.confirm(`⚠️ DELETE ${viewingClientHistory.name}? This action cannot be undone!`)) {
-                                                        deleteUser(viewingClientHistory.id);
-                                                        showToast(`${viewingClientHistory.name} has been deleted`, 'info');
-                                                        setViewingClientHistory(null);
-                                                    }
+                                                    showConfirm(
+                                                        'Delete User',
+                                                        `⚠️ DELETE ${viewingClientHistory.name}? This action cannot be undone!`,
+                                                        () => {
+                                                            deleteUser(viewingClientHistory.id);
+                                                            showToast(`${viewingClientHistory.name} has been deleted`, 'info');
+                                                            setViewingClientHistory(null);
+                                                        },
+                                                        'danger'
+                                                    );
                                                 }}
                                                 className="w-full flex items-center justify-center gap-2 p-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-lg transition-colors"
                                             >
@@ -2049,28 +2127,34 @@ export const AdminScreens: React.FC<AdminProps> = ({
         })();
 
         const handleMarkPaid = async (item: any) => {
-            if (!window.confirm(`Confirm payment of $${item.net.toFixed(2)} to ${item.washer.name}?`)) return;
+            showConfirm(
+                'Confirm Payment',
+                `Confirm payment of $${item.net.toFixed(2)} to ${item.washer.name}?`,
+                async () => {
 
-            const start = new Date(payrollWeek);
-            const weekId = `week_${start.toISOString().split('T')[0]}`;
+                    const start = new Date(payrollWeek);
+                    const weekId = `week_${start.toISOString().split('T')[0]}`;
 
-            try {
-                await addDoc(collection(db, 'payments'), {
-                    washerId: item.washer.id,
-                    washerName: item.washer.name,
-                    periodId: weekId,
-                    weekStart: start.toISOString(),
-                    amount: item.net,
-                    paidDate: new Date().toISOString(),
-                    paidBy: currentUser.id || 'admin',
-                    status: 'Paid',
-                    orderIds: item.orders.map((o: any) => o.id)
-                });
-                showToast('Payment recorded successfully', 'success');
-            } catch (e) {
-                console.error(e);
-                showToast('Error recording payment', 'error');
-            }
+                    try {
+                        await addDoc(collection(db, 'payments'), {
+                            washerId: item.washer.id,
+                            washerName: item.washer.name,
+                            periodId: weekId,
+                            weekStart: start.toISOString(),
+                            amount: item.net,
+                            paidDate: new Date().toISOString(),
+                            paidBy: currentUser.id || 'admin',
+                            status: 'Paid',
+                            orderIds: item.orders.map((o: any) => o.id)
+                        });
+                        showToast('Payment recorded successfully', 'success');
+                    } catch (e) {
+                        console.error(e);
+                        showToast('Error recording payment', 'error');
+                    }
+                },
+                'primary'
+            );
         };
 
         // Stats
@@ -2374,11 +2458,16 @@ export const AdminScreens: React.FC<AdminProps> = ({
                             <div className="mb-6 flex gap-2">
                                 <button
                                     onClick={async () => {
-                                        if (confirm('This will RESET all packages to defaults (Basic, Premium, Deluxe) with new pricing structure. Continue?')) {
-                                            await seedServicePackages();
-                                            showToast('Packages seeded successfully!', 'success');
-                                            // Force reload or wait for listener
-                                        }
+                                        showConfirm(
+                                            'Reset Packages',
+                                            'This will RESET all packages to defaults (Basic, Premium, Deluxe) with new pricing structure. Continue?',
+                                            async () => {
+                                                await seedServicePackages();
+                                                showToast('Packages seeded successfully!', 'success');
+                                                // Force reload or wait for listener
+                                            },
+                                            'danger'
+                                        );
                                     }}
                                     className="bg-purple-500/20 text-purple-400 px-4 py-2 rounded-lg text-sm font-bold hover:bg-purple-500/30 flex items-center gap-2"
                                 >
@@ -2404,10 +2493,15 @@ export const AdminScreens: React.FC<AdminProps> = ({
                             <div className="mb-6 flex gap-2">
                                 <button
                                     onClick={async () => {
-                                        if (confirm('This will reset vehicle types to default. Continue?')) {
-                                            await seedVehicleTypes();
-                                            showToast('Vehicle types seeded!', 'success');
-                                        }
+                                        showConfirm(
+                                            'Reset Vehicle Types',
+                                            'This will reset vehicle types to default. Continue?',
+                                            async () => {
+                                                await seedVehicleTypes();
+                                                showToast('Vehicle types seeded!', 'success');
+                                            },
+                                            'danger'
+                                        );
                                     }}
                                     className="bg-purple-500/20 text-purple-400 px-4 py-2 rounded-lg text-sm font-bold hover:bg-purple-500/30 flex items-center gap-2"
                                 >
@@ -2426,7 +2520,7 @@ export const AdminScreens: React.FC<AdminProps> = ({
                                 </div>
                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button onClick={() => { setIsNewItem(false); setEditingItem(type); setNewVehicleType({ name: type.name, icon: type.icon || 'directions_car' }); }} className="p-2 bg-white/10 rounded-lg hover:bg-white/20"><span className="material-symbols-outlined text-sm">edit</span></button>
-                                    <button onClick={() => { if (window.confirm('Delete this vehicle type?')) onDeleteVehicleType(type.id); }} className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20"><span className="material-symbols-outlined text-sm">delete</span></button>
+                                    <button onClick={() => { showConfirm('Delete Vehicle Type', 'Delete this vehicle type?', () => onDeleteVehicleType(type.id), 'danger'); }} className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20"><span className="material-symbols-outlined text-sm">delete</span></button>
                                 </div>
                             </div>
                         ))}
@@ -2718,13 +2812,18 @@ export const AdminScreens: React.FC<AdminProps> = ({
     };
 
     const handleDeleteTeamMember = (id: string) => {
-        if (window.confirm('Are you sure you want to delete this team member?')) {
-            // In a real app, this would call a delete function passed via props
-            // For now, we'll simulate it by filtering the local state (conceptually)
-            // Since props are read-only, we can't delete directly here without a prop function
-            // Assuming 'toggleBlockUser' is the only available action for now, or we need to add onDeleteTeamMember prop
-            showToast('Delete functionality would be implemented here.', 'info');
-        }
+        showConfirm(
+            'Delete Team Member',
+            'Are you sure you want to delete this team member?',
+            () => {
+                // In a real app, this would call a delete function passed via props
+                // For now, we'll simulate it by filtering the local state (conceptually)
+                // Since props are read-only, we can't delete directly here without a prop function
+                // Assuming 'toggleBlockUser' is the only available action for now, or we need to add onDeleteTeamMember prop
+                showToast('Delete functionality would be implemented here.', 'info');
+            },
+            'danger'
+        );
     };
 
     if ((screen as any) === Screen.ADMIN_DASHBOARD) {
@@ -3051,10 +3150,15 @@ export const AdminScreens: React.FC<AdminProps> = ({
                                     </button>
                                     <button
                                         onClick={() => {
-                                            if (window.confirm(`Convert ${member.name} back to Client? They will lose team access.`)) {
-                                                updateUserProfile(member.id, { role: 'client' });
-                                                showToast(`${member.name} is now a Client`, 'info');
-                                            }
+                                            showConfirm(
+                                                'Convert to Client',
+                                                `Convert ${member.name} back to Client? They will lose team access.`,
+                                                () => {
+                                                    updateUserProfile(member.id, { role: 'client' });
+                                                    showToast(`${member.name} is now a Client`, 'info');
+                                                },
+                                                'primary'
+                                            );
                                         }}
                                         className="p-2 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
                                         title="Demote to Client"
@@ -3589,22 +3693,27 @@ export const AdminScreens: React.FC<AdminProps> = ({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <button
                                 onClick={async () => {
-                                    if (window.confirm('Do you want to send WEATHER notifications?')) {
-                                        const tempStr = prompt("Enter temperature (F):", "75");
-                                        if (tempStr === null) return;
-                                        const msg = prompt("Enter message:", "☀️ Perfect weather today! Great day to wash your car.");
-                                        if (msg === null) return;
+                                    showConfirm(
+                                        'Send Weather Notifications',
+                                        'Do you want to send WEATHER notifications?',
+                                        async () => {
+                                            const tempStr = prompt("Enter temperature (F):", "75");
+                                            if (tempStr === null) return;
+                                            const msg = prompt("Enter message:", "☀️ Perfect weather today! Great day to wash your car.");
+                                            if (msg === null) return;
 
-                                        try {
-                                            showToast('Sending weather notifications...', 'info');
-                                            const sendWeather = httpsCallable(functions, 'sendWeatherNotificationsManual');
-                                            const result: any = await sendWeather({ temperature: parseInt(tempStr), message: msg });
-                                            showToast(`Success: ${result.data.success} sent, ${result.data.failed} failed`, 'success');
-                                        } catch (error: any) {
-                                            console.error(error);
-                                            showToast('Failed to send notifications: ' + error.message, 'error');
-                                        }
-                                    }
+                                            try {
+                                                showToast('Sending weather notifications...', 'info');
+                                                const sendWeather = httpsCallable(functions, 'sendWeatherNotificationsManual');
+                                                const result: any = await sendWeather({ temperature: parseInt(tempStr), message: msg });
+                                                showToast(`Success: ${result.data.success} sent, ${result.data.failed} failed`, 'success');
+                                            } catch (error: any) {
+                                                console.error(error);
+                                                showToast('Failed to send notifications: ' + error.message, 'error');
+                                            }
+                                        },
+                                        'primary'
+                                    );
                                 }}
                                 className="bg-gradient-to-r from-orange-500/20 to-yellow-500/20 hover:from-orange-500/30 hover:to-yellow-500/30 border border-orange-500/30 rounded-xl p-4 flex items-center gap-3 transition-all"
                             >
@@ -3619,20 +3728,25 @@ export const AdminScreens: React.FC<AdminProps> = ({
 
                             <button
                                 onClick={async () => {
-                                    if (window.confirm('Do you want to send INACTIVITY reminders?')) {
-                                        const daysStr = prompt("Minimum inactivity days:", "14");
-                                        if (daysStr === null) return;
+                                    showConfirm(
+                                        'Send Inactivity Reminders',
+                                        'Do you want to send INACTIVITY reminders?',
+                                        async () => {
+                                            const daysStr = prompt("Minimum inactivity days:", "14");
+                                            if (daysStr === null) return;
 
-                                        try {
-                                            showToast('Sending inactivity reminders...', 'info');
-                                            const sendInactivity = httpsCallable(functions, 'sendInactivityRemindersManual');
-                                            const result: any = await sendInactivity({ minDays: parseInt(daysStr) });
-                                            showToast(`Success: ${result.data.success} sent, ${result.data.failed} failed`, 'success');
-                                        } catch (error: any) {
-                                            console.error(error);
-                                            showToast('Failed to send reminders: ' + error.message, 'error');
-                                        }
-                                    }
+                                            try {
+                                                showToast('Sending inactivity reminders...', 'info');
+                                                const sendInactivity = httpsCallable(functions, 'sendInactivityRemindersManual');
+                                                const result: any = await sendInactivity({ minDays: parseInt(daysStr) });
+                                                showToast(`Success: ${result.data.success} sent, ${result.data.failed} failed`, 'success');
+                                            } catch (error: any) {
+                                                console.error(error);
+                                                showToast('Failed to send reminders: ' + error.message, 'error');
+                                            }
+                                        },
+                                        'primary'
+                                    );
                                 }}
                                 className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 hover:from-blue-500/30 hover:to-purple-500/30 border border-blue-500/30 rounded-xl p-4 flex items-center gap-3 transition-all"
                             >
@@ -3642,6 +3756,18 @@ export const AdminScreens: React.FC<AdminProps> = ({
                                 <div className="text-left">
                                     <h3 className="font-bold text-blue-400">Send Inactivity</h3>
                                     <p className="text-[10px] text-slate-400">Remind inactive clients</p>
+                                </div>
+                            </button>
+                            <button
+                                onClick={() => setShowNotificationTest(true)}
+                                className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 hover:from-purple-500/30 hover:to-pink-500/30 border border-purple-500/30 rounded-xl p-4 flex items-center gap-3 transition-all"
+                            >
+                                <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400">
+                                    <span className="material-symbols-outlined">bug_report</span>
+                                </div>
+                                <div className="text-left">
+                                    <h3 className="font-bold text-purple-400">Test Notifications</h3>
+                                    <p className="text-[10px] text-slate-400">Debug notification system</p>
                                 </div>
                             </button>
                         </div>
@@ -4270,5 +4396,23 @@ export const AdminScreens: React.FC<AdminProps> = ({
     }
 
     // ... (Rest of the file)
-    return <div className="text-white">Screen not found</div>;
+    return (
+        <>
+            <div className="text-white">Screen not found</div>
+            <ConfirmationModal
+                isOpen={confirmModal.isOpen}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                confirmText="Confirm"
+                cancelText="Cancel"
+                onConfirm={confirmModal.onConfirm}
+                onCancel={closeConfirm}
+                type={confirmModal.type}
+            />
+
+            {showNotificationTest && (
+                <NotificationTest onClose={() => setShowNotificationTest(false)} />
+            )}
+        </>
+    );
 };

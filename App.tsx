@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
@@ -7,7 +7,7 @@ import { authService } from './services/authService';
 import { useJsApiLoader } from '@react-google-maps/api';
 import { Screen, Order, TeamMember, ClientUser, Notification, NotificationType, Message, ServicePackage, ServiceAddon, IssueReport } from './types';
 import { AuthScreens } from './components/Auth';
-import { onSnapshot, doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { onSnapshot, doc, getDoc, setDoc, deleteDoc, enableNetwork } from 'firebase/firestore';
 import { useFirestoreData } from './hooks/useFirestoreData';
 import { useFirestoreActions } from './hooks/useFirestoreActions';
 import { WasherRegistration } from './components/WasherRegistration';
@@ -46,9 +46,13 @@ const AppContent: React.FC = () => {
     const { showToast } = useToast();
     const { platform, isMobile, isIOS, isAndroid, hasNotch } = usePlatform();
 
+    // Verification variable
+    (window as any).APP_VERSION_TAG = "VERSION_3_5_2_PRESENT";
+
     useEffect(() => {
-        console.log(`🚀 VERSION 3.5.1 STABLE - Platform: ${platform.toUpperCase()} ${hasNotch ? '(Notch)' : ''} 🚀`);
+        console.log(`🚀 VERSION 3.5.2 TESTING - Platform: ${platform.toUpperCase()} ${hasNotch ? '(Notch)' : ''} 🚀`);
         console.log('🛠️ STABILITY PATCH APPLIED');
+
 
         // Add platform class to HTML tag for REM scaling
         if (isMobile) document.documentElement.classList.add('platform-mobile');
@@ -108,6 +112,11 @@ const AppContent: React.FC = () => {
 
     // Local state for UI logic
     const [currentScreen, setCurrentScreen] = useState<Screen>(Screen.ONBOARDING);
+    const screenRef = useRef<Screen>(Screen.ONBOARDING);
+
+    useEffect(() => {
+        screenRef.current = currentScreen;
+    }, [currentScreen]);
 
     // --- GOOGLE MAPS LOADER (Global) ---
     const { isLoaded: isGoogleMapsLoaded } = useJsApiLoader({
@@ -146,22 +155,39 @@ const AppContent: React.FC = () => {
     useEffect(() => {
         let backListener: any;
         const setupBackListener = async () => {
-            backListener = await CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+            console.log('📱 Registering terminal back button listener...');
+            const backListener = CapacitorApp.addListener('backButton', () => {
+                const currentScreen = screenRef.current;
+                console.log('🔙 Native Back Button Pressed - Screen:', currentScreen);
+
+                // Screen names that should trigger app minimization
                 const rootScreens = [
-                    Screen.ONBOARDING,
-                    Screen.LOGIN,
-                    Screen.REGISTER,
-                    Screen.CLIENT_HOME,
-                    Screen.WASHER_DASHBOARD,
-                    Screen.ADMIN_DASHBOARD
+                    'CLIENT_HOME',
+                    'WASHER_HOME',
+                    'ADMIN_DASHBOARD',
+                    'LOGIN',
+                    'WELCOME',
+                    'SELECT_ROLE'
                 ];
 
                 if (rootScreens.includes(currentScreen)) {
-                    console.log('Minimizing app from root screen:', currentScreen);
-                    CapacitorApp.minimizeApp();
+                    console.log('🏠 Home screen detected, minimizing app');
+                    // Use our custom bridge if available, fallback to Capacitor
+                    if ((window as any).Android && (window as any).Android.minimizeApp) {
+                        (window as any).Android.minimizeApp();
+                    } else {
+                        CapacitorApp.minimizeApp();
+                    }
                 } else {
-                    console.log('Navigating back from:', currentScreen);
-                    window.history.back();
+                    console.log('⬅️ Navigating back from:', currentScreen);
+                    if (window.history.length > 1) {
+                        window.history.back();
+                    } else {
+                        console.warn('⚠️ No history found, falling back to home');
+                        if (currentUser?.role === 'client') navigateTo(Screen.CLIENT_HOME);
+                        else if (currentUser?.role === 'washer') navigateTo(Screen.WASHER_DASHBOARD);
+                        else if (currentUser?.role === 'admin') navigateTo(Screen.ADMIN_DASHBOARD);
+                    }
                 }
             });
         };
@@ -169,10 +195,11 @@ const AppContent: React.FC = () => {
         setupBackListener();
         return () => {
             if (backListener) {
+                console.log('🧹 Removing back button listener...');
                 backListener.remove();
             }
         };
-    }, [currentScreen]);
+    }, [currentUser?.role]); // Only re-run if role changes, keep listener alive otherwise.
 
     // Data State (Synced from Firestore)
     const [orders, setOrders] = useState<Order[]>([]);
@@ -223,24 +250,9 @@ const AppContent: React.FC = () => {
         }
     }, [firestoreOrders, firestoreTeam, firestoreClients, firestorePackages, firestoreAddons, firestoreVehicleTypes, firestoreDiscounts, firestoreBonuses, firestorePayments, firestoreIssues, firestoreMessages, firestoreNotifications, firestoreServiceArea, dataLoading]);
 
-    // SYNC CURRENT USER WITH REAL-TIME FIRESTORE DATA
-    useEffect(() => {
-        if (currentUser?.id) {
-            if (currentUser.role === 'client') {
-                const found = clients.find(c => c.id === currentUser.id);
-                if (found && JSON.stringify(found) !== JSON.stringify(currentUser)) {
-                    console.log("⚡ Auto-syncing currentUser data from Firestore...");
-                    setCurrentUser(found);
-                }
-            } else {
-                const found = team.find(t => t.id === currentUser.id);
-                if (found && JSON.stringify(found) !== JSON.stringify(currentUser)) {
-                    console.log("⚡ Auto-syncing teamMember data from Firestore...");
-                    setCurrentUser(found);
-                }
-            }
-        }
-    }, [clients, team, currentUser]);
+
+    // SYNC CURRENT USER WITH REAL-TIME FIRESTORE DATA (Consolidated)
+    // Note: Sincronización individual ahora manejada dentro de useFirestoreData.ts para evitar bucles.
 
     // UI State
     const [supportPhone, setSupportPhone] = useState<string>('');
@@ -328,9 +340,9 @@ const AppContent: React.FC = () => {
                 if (typeof window !== 'undefined' && window.Android?.setUserId) {
                     window.Android.setUserId(user.uid);
                     // Explicitly request token update
-                    if (window.Android?.requestFCMToken) {
+                    if (window.Android?.getFCMToken) {
                         console.log('📲 Requesting FCM token update from Android...');
-                        window.Android.requestFCMToken();
+                        window.Android.getFCMToken();
                     }
                 }
 
@@ -340,10 +352,16 @@ const AppContent: React.FC = () => {
                 let userProfile: any = null;
                 try {
                     userProfile = await authService.getCurrentUserProfile(user.uid);
-                } catch (e) {
-                    console.error('❌ CRITICAL ERROR: Failed to fetch user profile. Aborting to protect data.', e);
-                    showToast('Connection error loading profile. Please refresh.', 'error');
-                    return; // ABORT: Do NOT proceed to create a new profile if the read failed!
+                } catch (e: any) {
+                    console.error('❌ Error fetching user profile:', e);
+                    // If it's the "already-exists" error, it's a glitch in Firestore listeners, don't abort yet.
+                    if (e.code === 'already-exists' || e.message?.includes('Target ID already exists')) {
+                        console.warn('⚠️ Ignoring Firestore already-exists glitch during profile fetch');
+                    } else {
+                        console.error('❌ CRITICAL ERROR: Failed to fetch user profile. Aborting to protect data.', e);
+                        showToast('Connection error loading profile. Please refresh.', 'error');
+                        return; // ABORT for other fatal errors
+                    }
                 }
 
                 if (!userProfile) {
@@ -387,6 +405,8 @@ const AppContent: React.FC = () => {
                         completedJobs: 0
                     };
                     setCurrentUser(adminUser);
+                    localStorage.setItem('app_user_cache', JSON.stringify(adminUser));
+
                     analytics.setUser(user.uid, { role: 'admin', email });
                     analytics.trackLogin('email');
 
@@ -415,6 +435,8 @@ const AppContent: React.FC = () => {
                     }
 
                     setCurrentUser(washerUser);
+                    localStorage.setItem('app_user_cache', JSON.stringify(washerUser));
+
                     if (currentScreen.startsWith('ONBOARDING') || currentScreen.startsWith('LOGIN') || currentScreen.startsWith('REGISTER')) {
                         console.log('Redirecting Washer to Dashboard');
                         navigateTo(Screen.WASHER_DASHBOARD);
@@ -434,6 +456,8 @@ const AppContent: React.FC = () => {
                     };
 
                     setCurrentUser(clientUser);
+                    localStorage.setItem('app_user_cache', JSON.stringify(clientUser));
+
                     analytics.setUser(user.uid, { role: 'client', email });
 
                     if (currentScreen.startsWith('ONBOARDING') || currentScreen.startsWith('LOGIN') || currentScreen.startsWith('REGISTER')) {
@@ -451,21 +475,40 @@ const AppContent: React.FC = () => {
         });
 
         return () => unsubscribe();
-    }, [team, clients, currentScreen]);
+    }, [currentScreen]); // Removed team, clients to prevent circular re-render loop
 
     // --- UNIFIED NOTIFICATION SERVICE ---
     useEffect(() => {
-        if (firebaseUser && currentUser) {
+        if (firebaseUser && currentUser?.id) {
+            const userId = currentUser.id;
+            const userRole = currentUser.role;
+
             import('./services/pushNotificationService').then(({ pushNotificationService }) => {
-                pushNotificationService.initialize(currentUser.id);
+                pushNotificationService.initialize(userId);
+                // Explicitly request notification permissions and location tracking if applicable
+                pushNotificationService.requestPermissionsIfNeeded().then(granted => {
+                    console.log('📡 Notification permissions status:', granted);
+                });
             });
+
+            // If washer, request location permissions early
+            if (userRole === 'washer') {
+                import('./services/LocationService').then(({ LocationService }) => {
+                    LocationService.requestPermissions().then(granted => {
+                        console.log('📍 Location permissions status (Washer):', granted);
+                        if (granted && window.Android?.requestLocation) {
+                            window.Android.requestLocation(); // Trigger native bridge request just in case
+                        }
+                    });
+                });
+            }
 
             // HANDLE NATIVE FCM TOKEN (Custom Bridge)
             window.onFCMTokenReceived = async (token: string) => {
                 console.log('📱 FCM Token Received from Native Android:', token);
                 try {
                     const { doc, updateDoc, setDoc } = await import('firebase/firestore');
-                    const userRef = doc(db, 'users', currentUser.id);
+                    const userRef = doc(db, 'users', userId);
                     // Use set with merge to be safe
                     await setDoc(userRef, { fcmToken: token }, { merge: true });
                     console.log('✅ FCM Token saved successfully to Firestore (Native Bridge)');
@@ -490,27 +533,27 @@ const AppContent: React.FC = () => {
                     const targetUserId = payload.data?.targetUserId || payload.data?.userId || payload.data?.recipientId;
                     const targetRole = payload.data?.targetRole || payload.data?.role;
 
-                    console.log(`🔍 Filtering Notification: targetUser=${targetUserId}, targetRole=${targetRole} (Current: ${currentUser?.id}, ${currentUser?.role})`);
+                    console.log(`🔍 Filtering Notification: targetUser=${targetUserId}, targetRole=${targetRole} (Current: ${userId}, ${userRole})`);
 
                     // Filter by user ID if provided
-                    if (targetUserId && currentUser && targetUserId !== currentUser.id) {
+                    if (targetUserId && targetUserId !== userId) {
                         console.warn(`⚠️ Ignoring notification for different user: ${targetUserId}`);
                         return;
                     }
 
                     // Filter by role if provided
-                    if (targetRole && currentUser && targetRole !== currentUser.role) {
+                    if (targetRole && targetRole !== userRole) {
                         console.warn(`⚠️ Ignoring notification for different role: ${targetRole}`);
                         return;
                     }
 
                     // Strict check for admins: only show "admin" prefix notifications if the role matches
-                    if (currentUser?.role !== 'admin' && targetRole === 'admin') {
+                    if (userRole !== 'admin' && targetRole === 'admin') {
                         console.warn(`⚠️ Blocking Admin notification for non-admin user`);
                         return;
                     }
 
-                    console.log(`🔔 Foreground Notification Confirmed for ${currentUser?.role}: ${title}`);
+                    console.log(`🔔 Foreground Notification Confirmed for ${userRole}: ${title}`);
                     showToast(`${title}: ${body}`, 'info');
                 }
             };
@@ -520,7 +563,7 @@ const AppContent: React.FC = () => {
                 window.removeEventListener('fcm-message', handleForegroundMessage);
             };
         }
-    }, [firebaseUser, currentUser]);
+    }, [firebaseUser, currentUser?.id]); // Only re-run if auth user or user ID changes
 
     // --- DEEP LINKING ---
     const [targetOrderId, setTargetOrderId] = useState<string | null>(null);
@@ -549,35 +592,6 @@ const AppContent: React.FC = () => {
         }
     }, []);
 
-    // REAL-TIME LISTENER FOR CURRENT USER PROFILE
-    useEffect(() => {
-        if (!firebaseUser || !currentUser) return;
-
-        console.log('👂 Setting up real-time listener for user:', currentUser.id);
-
-        const unsubscribe = onSnapshot(
-            doc(db, 'users', currentUser.id),
-            (docSnapshot) => {
-                if (docSnapshot.exists()) {
-                    const updatedData = { id: docSnapshot.id, ...docSnapshot.data() } as any;
-                    console.log('🔄 User document updated from Firestore:', updatedData);
-                    console.log('   savedVehicles:', updatedData.savedVehicles || []);
-                    setCurrentUser(updatedData);
-                    localStorage.setItem('app_user_cache', JSON.stringify(updatedData));
-                } else {
-                    console.warn('⚠️ User document does not exist:', currentUser.id);
-                }
-            },
-            (error) => {
-                console.error('❌ Error listening to user document:', error);
-            }
-        );
-
-        return () => {
-            console.log('👋 Cleaning up user listener');
-            unsubscribe();
-        };
-    }, [firebaseUser, currentUser?.id]);
 
     // --- ACTIONS ---
     const handleLogout = async () => {
@@ -634,21 +648,28 @@ const AppContent: React.FC = () => {
 
     const handleCreateOrder = async (orderData: Partial<Order>) => {
         setIsLoading(true);
+        console.log('🚀 handleCreateOrder INITIATED in App.tsx', {
+            hasUser: !!currentUser,
+            userId: currentUser?.id,
+            orderDataPreview: {
+                price: orderData.price,
+                address: orderData.address
+            }
+        });
+
         try {
             let calculatedPrice = orderData.price || 0;
 
-            if (calculatedPrice === 0 && orderData.vehicleConfigs && orderData.vehicleConfigs.length > 0) {
-                console.log('💰 Calculating price from vehicleConfigs...');
+            if (packages.length > 0 && orderData.vehicleConfigs) {
+                console.log('📊 Recalculating price from configs...');
                 calculatedPrice = orderData.vehicleConfigs.reduce((total, config) => {
                     const pkg = packages.find(p => p.id === config.packageId);
                     const pkgPrice = pkg?.price[config.vehicleType] || 0;
-                    const addonsTotal = (config.addonIds || []).reduce((addonSum: number, addonId: string) => {
-                        const addon = addons.find(a => a.id === addonId);
-                        const addonPrice = addon?.price[config.vehicleType] || 0;
-                        return addonSum + addonPrice;
+                    const addonsPrice = (config.addonIds || []).reduce((sum: number, aid: string) => {
+                        const addon = addons.find(a => a.id === aid);
+                        return sum + (addon?.price[config.vehicleType] || 0);
                     }, 0);
-                    console.log(`  ${config.vehicleModel}: Package $${pkgPrice} + Addons $${addonsTotal}`);
-                    return total + pkgPrice + addonsTotal;
+                    return total + pkgPrice + addonsPrice;
                 }, 0);
                 console.log(`✅ Total calculated price: $${calculatedPrice}`);
             }

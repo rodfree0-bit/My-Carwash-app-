@@ -86,6 +86,10 @@ export class VehicleLookupService {
 
     // Get models for a make
     async getModels(make: string): Promise<string[]> {
+        if (!make || make === 'Unknown' || make === 'Other') {
+            return [];
+        }
+
         const url = `${this.baseUrl}/GetModelsForMake/${make}?format=json`;
         let apiData: string[] = [];
         let success = false;
@@ -104,7 +108,7 @@ export class VehicleLookupService {
                 success = true;
             }
         } catch (error) {
-            // console.warn('Direct fetch failed');
+            // Silently fail to fallback
         }
 
         // Try Proxy if Direct Failed

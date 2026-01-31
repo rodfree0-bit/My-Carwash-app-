@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Screen, Discount } from '../types';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface DiscountManagementProps {
     discounts: Discount[];
@@ -34,6 +35,23 @@ export const DiscountManagement: React.FC<DiscountManagementProps> = ({
         applicableTo: 'all' as 'all' | 'packages' | 'addons' | 'total',
         minimumOrderAmount: undefined as number | undefined
     });
+    const [confirmState, setConfirmState] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        confirmText: 'Confirm',
+        cancelText: 'Cancel',
+        onConfirm: () => { },
+        type: 'primary' as 'danger' | 'primary'
+    });
+
+    const showConfirm = (title: string, message: string, onConfirm: () => void, type: 'danger' | 'primary' = 'primary') => {
+        setConfirmState({ isOpen: true, title, message, confirmText: 'Confirm', cancelText: 'Cancel', onConfirm, type });
+    };
+
+    const closeConfirm = () => {
+        setConfirmState({ ...confirmState, isOpen: false });
+    };
 
     const handleOpenModal = (discount?: Discount) => {
         if (discount) {
@@ -105,14 +123,19 @@ export const DiscountManagement: React.FC<DiscountManagementProps> = ({
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm('Are you sure you want to delete this discount?')) {
-            try {
-                await deleteDiscount(id);
-                showToast('Discount deleted', 'info');
-            } catch (error) {
-                showToast('Error deleting discount', 'error');
-            }
-        }
+        showConfirm(
+            'Delete Discount',
+            'Are you sure you want to delete this discount?',
+            async () => {
+                try {
+                    await deleteDiscount(id);
+                    showToast('Discount deleted', 'info');
+                } catch (error) {
+                    showToast('Error deleting discount', 'error');
+                }
+            },
+            'danger'
+        );
     };
 
     const handleToggleActive = async (discount: Discount) => {
@@ -423,6 +446,17 @@ export const DiscountManagement: React.FC<DiscountManagementProps> = ({
                     </div>
                 </div>
             )}
+
+            <ConfirmationModal
+                isOpen={confirmState.isOpen}
+                title={confirmState.title}
+                message={confirmState.message}
+                confirmText={confirmState.confirmText}
+                cancelText={confirmState.cancelText}
+                onConfirm={confirmState.onConfirm}
+                onCancel={closeConfirm}
+                type={confirmState.type}
+            />
 
             <Nav active={Screen.ADMIN_DISCOUNTS} navigate={navigate} />
         </div>

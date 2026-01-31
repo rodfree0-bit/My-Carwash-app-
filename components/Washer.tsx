@@ -10,6 +10,7 @@ import { LocationService } from '../services/LocationService';
 import { addLoyaltyPoints } from './LoyaltyProgram';
 import { PhotoCapture } from './PhotoCapture/PhotoCapture';
 import { WasherSettings } from './Settings/WasherSettings';
+import { ConfirmationModal } from './ConfirmationModal';
 import { storage, db } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, query, where, orderBy, limit, onSnapshot, addDoc, updateDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
@@ -164,6 +165,36 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
   const [showNotifications, setShowNotifications] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [chatManuallyClosed, setChatManuallyClosed] = useState(false);
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: 'danger' | 'primary';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    type: 'primary'
+  });
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void, type: 'danger' | 'primary' = 'primary') => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      },
+      type
+    });
+  };
+
+  const closeConfirm = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
 
   // Global Fees State
   const [globalFees, setGlobalFees] = useState<{ name: string, percentage: number }[]>([]);
@@ -369,7 +400,7 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
         if (targetOrder) {
           // Check if order is already assigned to someone else
           if (targetOrder.washerId && targetOrder.washerId !== currentWasherId) {
-            alert('Sorry, this order has already been assigned to another washer.');
+            showToast('Sorry, this order has already been assigned to another washer.', 'warning');
             navigate(Screen.WASHER_ORDER_QUEUE);
           } else {
             setSelectedJob(targetOrder);
@@ -377,7 +408,7 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
           }
         } else {
           // If order not found in current list, maybe it was deleted or just not loaded
-          alert('Sorry, this order is no longer available.');
+          showToast('Sorry, this order is no longer available.', 'error');
           navigate(Screen.WASHER_ORDER_QUEUE);
         }
       } else {
@@ -1219,31 +1250,29 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
                     {/* Cancel Order Button */}
                     <button
                       onClick={async () => {
-                        const confirmed = window.confirm(
-                          '⚠️ Cancel this order?\n\n' +
-                          '• Your rating will decrease by 0.5 points\n' +
-                          '• The order will be reassigned to another washer\n' +
-                          '• This action cannot be undone'
+                        showConfirm(
+                          'Cancel Order',
+                          '⚠️ Cancel this order?\n\n• Your rating will decrease by 0.5 points\n• The order will be reassigned to another washer\n• This action cannot be undone',
+                          async () => {
+                            try {
+                              const newRating = Math.max(0, (currentWasher.rating || 5) - 0.5);
+                              await updateWasherProfile({ rating: newRating });
+                              await updateOrder(selectedJob.id, {
+                                status: 'Pending',
+                                washerId: '',
+                                washerName: ''
+                              });
+                              addNotification(selectedJob.clientId || '', 'Order Reassigned', 'Your washer cancelled. We are finding you a new one.', 'warning');
+                              addNotification('admin', 'Washer Cancelled Order', `${currentWasher.name} cancelled order #${selectedJob.id}. Please reassign.`, 'warning');
+                              triggerNativeHaptic();
+                              navigate(Screen.WASHER_JOBS);
+                            } catch (error) {
+                              console.error('Error cancelling order:', error);
+                              console.error('Failed to cancel order:', error);
+                            }
+                          },
+                          'danger'
                         );
-
-                        if (confirmed) {
-                          try {
-                            const newRating = Math.max(0, (currentWasher.rating || 5) - 0.5);
-                            await updateWasherProfile({ rating: newRating });
-                            await updateOrder(selectedJob.id, {
-                              status: 'Pending',
-                              washerId: '',
-                              washerName: ''
-                            });
-                            addNotification(selectedJob.clientId || '', 'Order Reassigned', 'Your washer cancelled. We are finding you a new one.', 'warning');
-                            addNotification('admin', 'Washer Cancelled Order', `${currentWasher.name} cancelled order #${selectedJob.id}. Please reassign.`, 'warning');
-                            triggerNativeHaptic();
-                            navigate(Screen.WASHER_JOBS);
-                          } catch (error) {
-                            console.error('Error cancelling order:', error);
-                            console.error('Failed to cancel order:', error);
-                          }
-                        }
                       }}
                       className="w-full bg-surface-dark border border-red-500/50 text-red-400 h-12 rounded-xl font-bold hover:bg-red-500/10 transition-colors flex items-center justify-center gap-2"
                     >
@@ -1342,11 +1371,15 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
 
                     <button
                       onClick={() => {
-                        const confirmNoShow = window.confirm('Client not present? This will mark the order as "No Show" and will require evidence photos.');
-                        if (confirmNoShow) {
-                          updateOrder(selectedJob.id, { status: 'Cancelled', cancelReason: 'Client No Show' });
-                          navigate(Screen.WASHER_JOBS);
-                        }
+                        showConfirm(
+                          'Client No Show',
+                          'Client not present? This will mark the order as "No Show" and will require evidence photos.',
+                          () => {
+                            updateOrder(selectedJob.id, { status: 'Cancelled', cancelReason: 'Client No Show' });
+                            navigate(Screen.WASHER_JOBS);
+                          },
+                          'danger'
+                        );
                       }}
                       className="w-full bg-surface-dark border border-red-500/50 text-red-400 h-14 rounded-xl font-bold hover:bg-red-500/10 transition-colors flex items-center justify-center gap-2"
                     >
@@ -1513,7 +1546,7 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
           }
         </div>
         <ModernNav />
-      </div>
+      </div >
     );
   }
 
@@ -1679,11 +1712,15 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
 
                 <button
                   onClick={() => {
-                    const confirmNoShow = window.confirm('Client not present? This will mark the order as "No Show".');
-                    if (confirmNoShow) {
-                      updateOrder(selectedJob.id, { status: 'Cancelled', cancelReason: 'Client No Show' });
-                      navigate(Screen.WASHER_JOBS);
-                    }
+                    showConfirm(
+                      'Client No Show',
+                      'Client not present? This will mark the order as "No Show".',
+                      () => {
+                        updateOrder(selectedJob.id, { status: 'Cancelled', cancelReason: 'Client No Show' });
+                        navigate(Screen.WASHER_JOBS);
+                      },
+                      'danger'
+                    );
                   }}
                   className="w-full py-3 rounded-xl font-bold text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-colors flex items-center justify-center gap-2"
                 >
@@ -2194,9 +2231,14 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
             </button>
             <button
               onClick={() => {
-                if (window.confirm('Are you sure you want to logout?')) {
-                  logout();
-                }
+                showConfirm(
+                  'Logout',
+                  'Are you sure you want to logout?',
+                  () => {
+                    logout();
+                  },
+                  'danger'
+                );
               }}
               className="w-full bg-surface-dark rounded-xl p-4 border border-white/5 text-left flex items-center justify-between hover:bg-red-500/10 transition-colors"
             >
@@ -2280,6 +2322,16 @@ const WasherContent: React.FC<WasherProps> = ({ screen, navigate, orders, update
           )}
         </>
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={closeConfirm}
+        type={confirmModal.type}
+      />
     </>
   );
 };

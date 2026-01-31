@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { i18n } from '../services/i18n';
+import { ConfirmationModal } from './ConfirmationModal';
 import { UserMenu } from './UserMenu';
 import { Screen, Order, OrderStatus, ServicePackage, ServiceAddon, VehicleType, ClientUser, Notification, NotificationType, Message, IssueReport, SavedVehicle } from '../types';
 import { AddVehicleModal } from './AddVehicleModal';
 import { useToast } from './Toast';
 import { FloatingChatButton } from './FloatingChatButton';
 // import { ChatModal } from './ChatModal';
-import { PaymentModal } from './PaymentModal';
+// PAYMENT: import { PaymentModal } from './PaymentModal';
 import { TrackingUI } from './TrackingUI';
 import { NotificationService } from '../services/NotificationService';
 import { LiveMap } from './LiveMap';
@@ -29,9 +30,9 @@ import { ServiceSelectionScreen } from './client/ServiceSelectionScreen';
 import { DateTimeSelectionScreen } from './client/DateTimeSelectionScreen';
 import { AddressSelectionScreen } from './client/AddressSelectionScreen';
 import { OrderConfirmationScreen } from './client/OrderConfirmationScreen';
-import { PaymentMethodsScreen } from './client/PaymentMethodsScreen';
+// PAYMENT: import { PaymentMethodsScreen } from './client/PaymentMethodsScreen';
 import { LoyaltyProgram } from './LoyaltyProgram';
-import { StripeService } from '../services/StripeService';
+// PAYMENT: import { StripeService } from '../services/StripeService';
 
 
 interface ClientProps {
@@ -102,6 +103,36 @@ const ClientContent: React.FC<ClientProps> = (props) => {
       }
     }
   }, [targetOrderId, orders]);
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: 'danger' | 'primary';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    type: 'primary'
+  });
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void, type: 'danger' | 'primary' = 'primary') => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      },
+      type
+    });
+  };
+
+  const closeConfirm = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
 
   // Monitor Viewed Order for Real-Time Status Changes
   useEffect(() => {
@@ -214,7 +245,7 @@ const ClientContent: React.FC<ClientProps> = (props) => {
           top: position.y,
           touchAction: 'none' // Important for preventing scroll while dragging
         }}
-        className={`fixed z-50 w-14 h-14 rounded-full bg-primary text-black shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        className={`fixed z-50 w-14 h-14 rounded-full bg-primary text-black shadow-lg flex items-center justify-center transition-transform active:scale-95 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
       >
         <span className="material-symbols-outlined text-2xl">chat</span>
         {unreadCount > 0 && (
@@ -275,7 +306,9 @@ const ClientContent: React.FC<ClientProps> = (props) => {
     console.log('📍 Address:', selectedAddress);
 
     // Create order data
-    const selectedCardData = (cards || []).find(c => c.id === selectedCard);
+    // PAYMENT: Card selection removed
+    // const selectedCardData = (cards || []).find(c => c.id === selectedCard);
+
 
     const orderData: Partial<Order> = {
       clientId: user.id,
@@ -291,11 +324,12 @@ const ClientContent: React.FC<ClientProps> = (props) => {
       price: finalTotal, // Use the calculated total price
       basePrice: finalTotal,
       status: 'Pending' as OrderStatus,
-      paymentStatus: 'Pending',
-      paymentMethod: selectedCardData ? {
-        last4: selectedCardData.last4,
-        brand: selectedCardData.brand
-      } : null
+      paymentStatus: 'Pending'
+      // PAYMENT: Payment method removed
+      // paymentMethod: selectedCardData ? {
+      //   last4: selectedCardData.last4,
+      //   brand: selectedCardData.brand
+      // } : null
     };
 
     console.log('📦 Order Data to save:', orderData);
@@ -312,14 +346,61 @@ const ClientContent: React.FC<ClientProps> = (props) => {
     !recentlyRatedOrders.includes(o.id)
   );
 
-  // Force navigation REMOVED - Preventing stuck loop.
-  // useEffect(() => {
-  //   if (orderToRate && screen !== Screen.CLIENT_RATING) {
-  //     console.log('🔒 Locking navigation to Rating Screen for order:', orderToRate.id);
-  //     setViewingOrder(orderToRate);
-  //     navigate(Screen.CLIENT_RATING);
-  //   }
-  // }, [orderToRate, screen]);
+  // --- AUTO-CLOSE LOGIC (10 Minutes) ---
+  // User Requirement: "si no lo hace en 10 min se termina la orden completamente y se le cobra solo lo que gasto"
+
+  // Use a ref to track processed orders instantly without triggering re-renders/looping
+  const processedOrdersRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const checkAutoClose = async () => {
+      if (!orders || orders.length === 0) return;
+
+      const TEN_MINUTES_MS = 10 * 60 * 1000;
+      const now = Date.now();
+
+      // Find candidates that haven't been processed in this session
+      const staleOrders = orders.filter(o =>
+        o.status === 'Completed' &&
+        !o.clientRating && // Client hasn't rated/tipped yet
+        o.completedAt &&
+        (now - o.completedAt) > TEN_MINUTES_MS &&
+        !processedOrdersRef.current.has(o.id)
+      );
+
+      if (staleOrders.length > 0) {
+        console.log("⏰ Found stale completed orders for auto-close:", staleOrders.map(o => o.id));
+
+        for (const order of staleOrders) {
+          // Double check inside loop (in case of race conditions or rapid fires)
+          if (processedOrdersRef.current.has(order.id)) continue;
+
+          // MARK AS PROCESSED IMMEDIATELY
+          processedOrdersRef.current.add(order.id);
+
+          try {
+            // Silently auto-finalize stale orders to keep the UI clean
+            await submitOrderRating(order.id, {
+              clientRating: 5,
+              clientReview: 'Auto-completed by system',
+              tip: 0,
+              washerId: order.washerId || ''
+            });
+          } catch (e) {
+            // Already marked as processed, so it won't retry frequently
+          }
+        }
+      }
+    };
+
+    // Check periodically (every 1 minute)
+    const intervalId = setInterval(checkAutoClose, 60000);
+
+    // Also check on mount
+    checkAutoClose();
+
+    return () => clearInterval(intervalId);
+  }, [orders, submitOrderRating]); // Removed recentlyRatedOrders dependency to avoid loop
 
   const [weather, setWeather] = useState<{ temp: number; description: string; icon: string; recommendation: string } | null>(null);
 
@@ -335,71 +416,7 @@ const ClientContent: React.FC<ClientProps> = (props) => {
     fetchWeather();
   }, []);
 
-  // --- AUTO-RECOVERY ENABLED: FALSE (Causing data loss/overwrite on profile load race conditions) ---
-  /*
-  useEffect(() => {
-    const recoverVehicles = async () => {
-      // Only run if user has NO saved vehicles but HAS orders
-      if (user.savedVehicles && user.savedVehicles.length === 0 && orders.length > 0) {
-        console.log('🚑 AUTO-RECOVERY: Detecting lost vehicles from order history...');
-  
-        const recoveredVehicles = new Map<string, SavedVehicle>();
-  
-        orders.forEach(order => {
-          // Check for modern vehicleConfigs
-          if (order.vehicleConfigs && order.vehicleConfigs.length > 0) {
-            order.vehicleConfigs.forEach(vc => {
-              const key = `${vc.vehicleModel}-${vc.vehicleType}`;
-              if (!recoveredVehicles.has(key)) {
-                recoveredVehicles.set(key, {
-                  id: Date.now().toString() + Math.random().toString().slice(2, 6),
-                  model: vc.vehicleModel,
-                  type: vc.vehicleType as VehicleType,
-                  color: '',
-                  make: 'Unknown',
-                  year: '',
-                  isDefault: false
-                });
-              }
-            });
-          }
-          // Check for legacy single vehicle fields
-          else if (order.vehicle && order.vehicleType) {
-            const key = `${order.vehicle}-${order.vehicleType}`;
-            if (!recoveredVehicles.has(key)) {
-              recoveredVehicles.set(key, {
-                id: Date.now().toString() + Math.random().toString().slice(2, 6),
-                model: order.vehicle,
-                type: order.vehicleType as VehicleType,
-                color: '',
-                make: 'Unknown',
-                year: '',
-                isDefault: false
-              });
-            }
-          }
-        });
-  
-        if (recoveredVehicles.size > 0) {
-          const vehiclesToSave = Array.from(recoveredVehicles.values());
-          console.log(`🚑 RECOVERED ${vehiclesToSave.length} VEHICLES:`, vehiclesToSave);
-          showToast(`Recovering ${vehiclesToSave.length} vehicles...`, 'info');
-  
-          // Save to Firestore
-          await updateProfile({
-            savedVehicles: vehiclesToSave
-          });
-          showToast('Vehicles restored successfully!', 'success');
-        } else {
-          console.log('No vehicles found to recover.');
-        }
-      }
-    };
-  
-    recoverVehicles();
-  }, [orders, user.savedVehicles]);
-  */
-
+  // --- AUTO-RECOVERY REMOVED (As requested by user to prevent restoration of deleted vehicles) ---
 
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const activeTrackingOrder = orders.find(o => o.id === trackingOrderId);
@@ -507,7 +524,10 @@ const ClientContent: React.FC<ClientProps> = (props) => {
       const vehicleType = String(vehicleData.type || 'sedan');
 
       // Upload image to Firebase Storage if provided
-      let imageUrl: string | null = null;
+      let imageUrl: string | null = (editingVehicle?.image) || null; // Fallback to existing if not changed
+
+      console.log('📸 Processing vehicle image. Incoming image value:', image ? (image.startsWith('http') ? 'URL' : 'DataURI') : 'NULL');
+
       if (image) {
         if (image.startsWith('http')) {
           // It's already a URL, keep it
@@ -518,6 +538,7 @@ const ClientContent: React.FC<ClientProps> = (props) => {
           try {
             console.log('📸 NEW IMAGE DETECTED (base64). Starting upload...');
             const vehicleId = editingVehicle?.id || `v_${Date.now()}`;
+
             const storagePath = `vehicles/${user.id}/${vehicleId}.jpg`;
             console.log('📂 Storage Path:', storagePath);
 
@@ -567,7 +588,13 @@ const ClientContent: React.FC<ClientProps> = (props) => {
       } else {
         // CREATE NEW VEHICLE
         const vehicleId = `v_${Date.now()}`;
-        const isFirstVehicle = !user.savedVehicles || user.savedVehicles.length === 0;
+        const existingVehicles = user.savedVehicles || [];
+        const isFirstVehicle = existingVehicles.length === 0;
+
+        // DEFENSIVE CHECK: If we have orders but NO vehicles, it's highly suspicious that the profile is stale.
+        if (isFirstVehicle && (orders || []).length > 0) {
+          console.warn('⚠️ DEFENSIVE: User has orders but 0 saved vehicles. Profile might be stale.');
+        }
 
         const newVehicle = {
           id: vehicleId,
@@ -582,7 +609,6 @@ const ClientContent: React.FC<ClientProps> = (props) => {
         };
 
         console.log('📦 New vehicle:', newVehicle);
-        const existingVehicles = user.savedVehicles || [];
         allVehicles = [...existingVehicles, newVehicle];
       }
 
@@ -590,34 +616,48 @@ const ClientContent: React.FC<ClientProps> = (props) => {
 
       // Update directly
       console.log('🔄 Calling updateProfile with savedVehicles...');
-      const result = await updateProfile({ savedVehicles: allVehicles });
-      console.log('📥 updateProfile returned:', result);
+
+      // OPTIMISTIC UPDATE: Update local user state immediately to verify UI responsiveness
+      // We rely on the parent (App.tsx) listener to confirm, but this helps debugging.
+
+      await updateProfile({ savedVehicles: allVehicles });
 
       console.log('✅ SUCCESS!');
       showToast(editingVehicle ? 'Vehicle updated successfully!' : 'Vehicle added successfully!', 'success');
       setShowAddVehicleModal(false);
       setEditingVehicle(null); // Reset editing state
 
-      // Reference note about delay
-      // note: Firestore listener will auto-update UI
-
     } catch (error) {
-      console.error('❌ FAILED:', error);
-      showToast(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+      console.error('❌ FAILED to save vehicle:', error);
+      showToast(`Error saving vehicle: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     }
   };
 
   const handleDeleteSavedVehicle = async (vehicleId: string) => {
-    try {
-      if (!window.confirm('Are you sure you want to remove this vehicle?')) return;
-      const updatedVehicles = (user.savedVehicles || []).filter(v => v.id !== vehicleId);
-      await updateProfile({ savedVehicles: updatedVehicles });
-      showToast('Vehicle removed', 'success');
-    } catch (error) {
-      console.error('Error deleting vehicle:', error);
-      showToast(`Failed to delete vehicle: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-    }
+    showConfirm(
+      'Delete Vehicle',
+      'Are you sure you want to remove this vehicle?',
+      async () => {
+        try {
+          console.log(`🗑️ Deleting vehicle ${vehicleId}...`);
+          const updatedVehicles = (user.savedVehicles || []).filter(v => v.id !== vehicleId);
+
+          if (updatedVehicles.length === (user.savedVehicles || []).length) {
+            console.warn('⚠️ Vehicle ID not found in list, nothing to delete.');
+          }
+
+          await updateProfile({ savedVehicles: updatedVehicles });
+          console.log('✅ Vehicle deleted successfully in Firestore');
+          showToast('Vehicle removed', 'success');
+        } catch (error) {
+          console.error('❌ Error deleting vehicle:', error);
+          showToast(`Failed to delete vehicle: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+        }
+      },
+      'danger'
+    );
   };
+
 
 
 
@@ -918,33 +958,46 @@ const ClientContent: React.FC<ClientProps> = (props) => {
   }, [user]);
 
   // Payment Methods State
-  const [showAddCardForm, setShowAddCardForm] = useState(false);
-  const [selectedCard, setSelectedCard] = useState<string>(user?.savedCards?.[0]?.id || '');
-  const [cards, setCards] = useState<any[]>(user?.savedCards || []);
-  const [newCard, setNewCard] = useState({ number: '', expiry: '', cvc: '', name: '' });
+  // PAYMENT: const [showAddCardForm, setShowAddCardForm] = useState(false);
+  // PAYMENT: // Filter out invalid legacy cards (must start with pm_ or card_)
+  // PAYMENT: const validSavedCards = (user?.savedCards || []).filter(c => c.id.startsWith('pm_') || c.id.startsWith('card_'));
+  // PAYMENT: const [selectedCard, setSelectedCard] = useState<string>(validSavedCards?.[0]?.id || '');
+  // PAYMENT: const [cards, setCards] = useState<any[]>(validSavedCards || []);
+  // PAYMENT: const [newCard, setNewCard] = useState({ number: '', expiry: '', cvc: '', name: '' });
 
-  // Load saved cards from Stripe
-  const fetchStripeCards = async () => {
-    try {
-      console.log('💳 Fetching cards from Stripe...');
-      const stripeCards = await StripeService.listPaymentMethods();
-      setCards(stripeCards);
-    } catch (error) {
-      console.error('🔴 Client.fetchCards error details:', {
-        code: (error as any).code,
-        message: (error as any).message,
-        details: (error as any).details,
-        error
-      });
-      // showToast('Failed to load saved cards', 'error');
-    }
-  };
-
-  useEffect(() => {
-    if (user.id) {
-      fetchStripeCards();
-    }
-  }, [user.id]);
+  // PAYMENT: Load saved cards from Stripe
+  // PAYMENT: const fetchStripeCards = async () => {
+  // PAYMENT:   try {
+  // PAYMENT:     console.log('💳 Fetching cards from Stripe...');
+  // PAYMENT:     const stripeCards = await StripeService.listPaymentMethods();
+  // PAYMENT:     setCards(stripeCards);
+  // PAYMENT:
+  // PAYMENT:     // SYNC: Update Firestore profile with the valid cards from Stripe
+  // PAYMENT:     // This ensures that Android/iOS/Web all see the same valid "cache" 
+  // PAYMENT:     // and invalid local IDs are permanently removed from the DB.
+  // PAYMENT:     if (user.id) {
+  // PAYMENT:       console.log('🔄 Syncing Stripe cards to Firestore User Profile...');
+  // PAYMENT:       updateProfile({ savedCards: stripeCards }).catch(err =>
+  // PAYMENT:         console.warn('⚠️ Failed to sync cards to profile (non-critical):', err)
+  // PAYMENT:       );
+  // PAYMENT:     }
+  // PAYMENT:
+  // PAYMENT:   } catch (error) {
+  // PAYMENT:     console.error('🔴 Client.fetchCards error details:', {
+  // PAYMENT:       code: (error as any).code,
+  // PAYMENT:       message: (error as any).message,
+  // PAYMENT:       details: (error as any).details,
+  // PAYMENT:       error
+  // PAYMENT:     });
+  // PAYMENT:     // showToast('Failed to load saved cards', 'error');
+  // PAYMENT:   }
+  // PAYMENT: };
+  // PAYMENT:
+  // PAYMENT: useEffect(() => {
+  // PAYMENT:   if (user.id) {
+  // PAYMENT:     fetchStripeCards();
+  // PAYMENT:   }
+  // PAYMENT: }, [user.id]);
 
 
 
@@ -1038,41 +1091,41 @@ const ClientContent: React.FC<ClientProps> = (props) => {
     }
   };
 
-  // Ensure a valid card is always selected
-  useEffect(() => {
-    if (Array.isArray(cards) && cards.length > 0) {
-      if (!selectedCard) {
-        console.log('💳 Auto-selecting first card (init)');
-        setSelectedCard(cards[0].id);
-      } else {
-        // Verify selection exists
-        const exists = cards.find(c => c.id === selectedCard);
-        if (!exists) {
-          console.log('💳 Selected card not found, defaulting to first');
-          setSelectedCard(cards[0].id);
-        }
-      }
-    }
-  }, [cards, selectedCard]);
+  // PAYMENT: Ensure a valid card is always selected
+  // PAYMENT: useEffect(() => {
+  // PAYMENT:   if (Array.isArray(cards) && cards.length > 0) {
+  // PAYMENT:     if (!selectedCard) {
+  // PAYMENT:       console.log('💳 Auto-selecting first card (init)');
+  // PAYMENT:       setSelectedCard(cards[0].id);
+  // PAYMENT:     } else {
+  // PAYMENT:       // Verify selection exists
+  // PAYMENT:       const exists = cards.find(c => c.id === selectedCard);
+  // PAYMENT:       if (!exists) {
+  // PAYMENT:         console.log('💳 Selected card not found, defaulting to first');
+  // PAYMENT:         setSelectedCard(cards[0].id);
+  // PAYMENT:       }
+  // PAYMENT:     }
+  // PAYMENT:   }
+  // PAYMENT: }, [cards, selectedCard]);
 
-  const handleAddCardSuccess = () => {
-    fetchStripeCards();
-    showToast('Card added successfully!', 'success');
-    setShowAddCardForm(false);
-    setShowPaymentModal(false);
-  };
-
-  const handleDeleteCard = async (id: string) => {
-    try {
-      if (!window.confirm('Are you sure you want to remove this card?')) return;
-      await StripeService.deletePaymentMethod(id);
-      setCards(prev => prev.filter(c => c.id !== id));
-      showToast('Card removed', 'success');
-    } catch (error) {
-      console.error('Error removing card:', error);
-      showToast('Failed to remove card from Stripe', 'error');
-    }
-  };
+  // PAYMENT: const handleAddCardSuccess = () => {
+  // PAYMENT:   fetchStripeCards();
+  // PAYMENT:   showToast('Card added successfully!', 'success');
+  // PAYMENT:   setShowAddCardForm(false);
+  // PAYMENT:   setShowPaymentModal(false);
+  // PAYMENT: };
+  // PAYMENT:
+  // PAYMENT: const handleDeleteCard = async (id: string) => {
+  // PAYMENT:   try {
+  // PAYMENT:     if (!window.confirm('Are you sure you want to remove this card?')) return;
+  // PAYMENT:     await StripeService.deletePaymentMethod(id);
+  // PAYMENT:     setCards(prev => prev.filter(c => c.id !== id));
+  // PAYMENT:     showToast('Card removed', 'success');
+  // PAYMENT:   } catch (error) {
+  // PAYMENT:     console.error('Error removing card:', error);
+  // PAYMENT:     showToast('Failed to remove card from Stripe', 'error');
+  // PAYMENT:   }
+  // PAYMENT: };
 
   // Simulate Tracking Updates
   const [eta, setEta] = useState(15);
@@ -1185,26 +1238,34 @@ const ClientContent: React.FC<ClientProps> = (props) => {
   };
 
   const handleDeleteAddress = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this address?')) return;
+    showConfirm(
+      'Delete Address',
+      'Are you sure you want to delete this address?',
+      async () => {
+        const updatedAddresses = addresses.filter(a => a.id !== id);
+        setAddresses(updatedAddresses);
 
-    const updatedAddresses = addresses.filter(a => a.id !== id);
-    setAddresses(updatedAddresses);
-
-    try {
-      await updateProfile({ savedAddresses: updatedAddresses });
-      showToast('Address deleted', 'success');
-    } catch (error) {
-      console.error('Error deleting address', error);
-      showToast('Failed to delete address', 'error');
-    }
+        try {
+          await updateProfile({ savedAddresses: updatedAddresses });
+          showToast('Address deleted', 'success');
+        } catch (error) {
+          console.error('Error deleting address', error);
+          showToast('Failed to delete address', 'error');
+        }
+      },
+      'danger'
+    );
   };
 
 
 
   const handleCancelClick = (orderId: string) => {
-    if (window.confirm("⚠️ CANCELLATION POLICY\n\nCancelling this order will incur a $10.00 fee.\n\nDo you want to proceed?")) {
-      cancelOrder(orderId);
-    }
+    showConfirm(
+      'Cancellation Policy',
+      "Cancelling this order will incur a $10.00 fee. Do you want to proceed?",
+      () => cancelOrder(orderId),
+      'danger'
+    );
   };
 
   const handleSaveClientEdit = () => {
@@ -1232,7 +1293,7 @@ const ClientContent: React.FC<ClientProps> = (props) => {
   };
 
   const BottomNav = () => (
-    <div className="sticky bottom-0 bg-background-dark/95 backdrop-blur-xl border-t border-white/5 p-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))] z-20">
+    <div className="bg-background-dark/95 backdrop-blur-xl border-t border-white/5 p-2 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] z-20">
       <div className="flex justify-around items-center max-w-lg mx-auto">
         {[
           { icon: 'home', label: 'Home', action: () => navigate(Screen.CLIENT_HOME), active: screen === Screen.CLIENT_HOME },
@@ -1280,12 +1341,16 @@ const ClientContent: React.FC<ClientProps> = (props) => {
     <>
       <AddVehicleModal
         isOpen={showAddVehicleModal}
-        onClose={() => setShowAddVehicleModal(false)}
+        onClose={() => {
+          setShowAddVehicleModal(false);
+          setEditingVehicle(null); // Clear editing state on close
+        }}
         onSave={(data, image) => handleAddSavedVehicle(data, image)}
         onDelete={() => {
           if (editingVehicle) {
             handleDeleteSavedVehicle(editingVehicle.id);
             setShowAddVehicleModal(false);
+            setEditingVehicle(null);
           }
         }}
         vehicleTypes={vehicleTypes}
@@ -1357,6 +1422,108 @@ const ClientContent: React.FC<ClientProps> = (props) => {
           addons={addons}
         />
       )}
+
+      {/* Profile & Settings Modals */}
+      {showEditProfileModal ? (
+        <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+          <div className="bg-surface-dark w-full max-w-md rounded-2xl border border-white/10 p-6">
+            <h3 className="font-bold text-xl mb-6">{i18n.t('edit_profile')}</h3>
+            <div className="space-y-4">
+              <div className="flex flex-col items-center mb-4">
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full bg-cover bg-center border-4 border-primary" style={{ backgroundImage: `url("${profileData.photo}")` }}></div>
+                  <button onClick={handleProfileImageChange} className="absolute bottom-0 right-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center hover:bg-primary-dark shadow-lg border-2 border-surface-dark">
+                    <span className="material-symbols-outlined text-sm">photo_camera</span>
+                  </button>
+                  <input type="file" ref={profileInputRef} onChange={handleFilePhotoChange} accept="image/*" className="hidden" />
+                </div>
+                <p className="text-xs text-slate-400 mt-2">{i18n.t('click_camera')}</p>
+              </div>
+              <div><label className="text-xs text-slate-400 uppercase font-bold">{i18n.t('full_name')}</label><input type="text" value={profileData.name} onChange={e => setProfileData({ ...profileData, name: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 mt-1 text-white" /></div>
+              <div><label className="text-xs text-slate-400 uppercase font-bold">{i18n.t('email_address')}</label><input type="email" value={profileData.email} onChange={e => setProfileData({ ...profileData, email: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 mt-1 text-white" /></div>
+              <div><label className="text-xs text-slate-400 uppercase font-bold">{i18n.t('phone_number')}</label><input type="tel" value={profileData.phone} onChange={e => setProfileData({ ...profileData, phone: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 mt-1 text-white" /></div>
+              <div>
+                <label className="text-xs text-slate-400 uppercase font-bold">Home Address</label>
+                <textarea value={profileData.address || ''} onChange={e => setProfileData({ ...profileData, address: e.target.value })} placeholder="Enter your full address..." rows={2} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 mt-1 text-white resize-none" />
+              </div>
+              <button onClick={handleSaveProfile} style={{ backgroundColor: '#3b82f6' }} className="w-full hover:brightness-90 h-12 rounded-xl font-bold mt-4 text-white shadow-blue transition-all">{i18n.t('save_changes')}</button>
+              <button onClick={() => setShowEditProfileModal(false)} className="w-full text-slate-400 py-2">{i18n.t('cancel')}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Address Management Modal */}
+      {showAddressModal ? (
+        <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+          <div className="bg-surface-dark w-full max-w-md rounded-2xl border border-white/10 p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-bold text-xl">My Addresses</h3>
+              <button onClick={() => setShowAddressModal(false)}><span className="material-symbols-outlined">close</span></button>
+            </div>
+            <div className="space-y-3 mb-6">
+              {(addresses || []).map(addr => (
+                <div key={addr.id} className="bg-white/5 p-4 rounded-xl border border-white/10 flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-primary">{addr.icon || 'location_on'}</span>
+                    <div>
+                      <p className="font-bold">{addr.label || addr.name || 'Address'}</p>
+                      <p className="text-sm text-slate-400">{addr.address}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => handleDeleteAddress(addr.id)} className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition-colors">
+                    <span className="material-symbols-outlined text-lg">delete</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShowAddAddressModal(true)} className="w-full bg-primary h-12 rounded-xl font-bold flex items-center justify-center gap-2">
+              <span className="material-symbols-outlined">add</span> Add New Address
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Claim Modal */}
+      {showClaimModal ? (
+        <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+          <div className="bg-surface-dark w-full max-w-md rounded-2xl border border-white/10 p-6">
+            <h3 className="font-bold text-xl mb-4 text-red-400 flex items-center gap-2"><span className="material-symbols-outlined">report_problem</span> Report an Issue</h3>
+            <textarea value={claimDescription} onChange={e => setClaimDescription(e.target.value)} placeholder="Describe the problem..." className="w-full bg-white/5 border border-white/10 rounded-xl p-3 mb-4 text-white h-32 resize-none" />
+            <div className="flex gap-3">
+              <button onClick={() => setShowClaimModal(false)} className="flex-1 py-3 rounded-xl font-bold text-slate-400 hover:bg-white/5">Cancel</button>
+              <button onClick={submitClaim} className="flex-1 py-3 rounded-xl font-bold bg-red-500 text-white hover:bg-red-600">Submit Claim</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Loyalty Program Modal */}
+      {showLoyaltyModal ? (
+        <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+          <div className="bg-surface-dark w-full max-w-md rounded-2xl border border-white/10 max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-surface-dark border-b border-white/10 p-4 flex justify-between items-center z-10">
+              <h3 className="font-bold text-xl">Loyalty Program</h3>
+              <button onClick={() => setShowLoyaltyModal(false)}><span className="material-symbols-outlined">close</span></button>
+            </div>
+            <div className="p-4">
+              <LoyaltyProgram userId={user?.id || ''} />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Styled Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={closeConfirm}
+        confirmText="Proceed"
+        cancelText="Cancel"
+        type={confirmModal.type}
+      />
     </>
   );
 
@@ -1479,31 +1646,36 @@ const ClientContent: React.FC<ClientProps> = (props) => {
                     <button onClick={() => setTrackingOrderId(order.id)} className="flex-1 bg-primary text-white py-2.5 rounded-xl font-bold text-sm shadow-blue hover:scale-[1.02] active:scale-[0.98] transition-all ring-1 ring-white/10">Order Status</button>
                     <button
                       disabled={cancellingOrderId === order.id}
-                      onClick={async () => {
+                      onClick={() => {
                         const isAssigned = order.status !== 'Pending';
                         const message = isAssigned
                           ? "A washer has been assigned! Cancelling now will incur a $10.00 cancellation fee charged to your payment method. Do you wish to proceed?"
                           : "Are you sure you want to cancel? No fee will be charged as no washer has been assigned yet.";
 
-                        if (window.confirm(message)) {
-                          setCancellingOrderId(order.id);
-                          try {
-                            // OPTIMISTIC UPDATE: Hide immediately
-                            setSuccessfullyCancelledIds(prev => [...prev, order.id]);
+                        showConfirm(
+                          'Cancel Order',
+                          message,
+                          async () => {
+                            setCancellingOrderId(order.id);
+                            try {
+                              // OPTIMISTIC UPDATE: Hide immediately
+                              setSuccessfullyCancelledIds(prev => [...prev, order.id]);
 
-                            // Also remove from optimistic list if it exists there
-                            setOptimisticOrders(prev => prev.filter(o => o.id !== order.id));
+                              // Also remove from optimistic list if it exists there
+                              setOptimisticOrders(prev => prev.filter(o => o.id !== order.id));
 
-                            await cancelOrder(order.id, isAssigned);
-                            showToast('Order cancelled.', 'success');
-                          } catch (e) {
-                            console.error('Cancel failed', e);
-                            showToast('Could not cancel order.', 'error');
-                            setCancellingOrderId(null);
-                            // Revert optimistic update if failed
-                            setSuccessfullyCancelledIds(prev => prev.filter(id => id !== order.id));
-                          }
-                        }
+                              await cancelOrder(order.id, isAssigned);
+                              showToast('Order cancelled.', 'success');
+                            } catch (e) {
+                              console.error('Cancel failed', e);
+                              showToast('Could not cancel order.', 'error');
+                              setCancellingOrderId(null);
+                              // Revert optimistic update if failed
+                              setSuccessfullyCancelledIds(prev => prev.filter(id => id !== order.id));
+                            }
+                          },
+                          'danger'
+                        );
                       }}
                       className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg font-bold text-sm hover:bg-red-500/30 transition-colors disabled:opacity-50"
                     >
@@ -1604,7 +1776,12 @@ const ClientContent: React.FC<ClientProps> = (props) => {
           <header className="flex items-center px-4 py-4 border-b border-white/5">
             <button onClick={() => navigate(Screen.CLIENT_HOME)}><span className="material-symbols-outlined">arrow_back_ios_new</span></button>
             <h1 className="flex-1 text-center font-bold text-lg mr-6">My Garage</h1>
-            <button onClick={() => { setNewVehicle({ make: '', model: '', year: '', color: '', plate: '', type: 'Sedan' }); setNewVehicleImage(null); setShowAddVehicleModal(true); }} className="text-primary"><span className="material-symbols-outlined">add</span></button>
+            <button onClick={() => {
+              setEditingVehicle(null); // Ensure editingVehicle is null for Add action
+              setNewVehicle({ make: '', model: '', year: '', color: '', plate: '', type: 'Sedan' as VehicleType });
+              setNewVehicleImage(null);
+              setShowAddVehicleModal(true);
+            }} className="text-primary"><span className="material-symbols-outlined">add</span></button>
           </header>
 
           <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 pb-24">
@@ -1648,11 +1825,13 @@ const ClientContent: React.FC<ClientProps> = (props) => {
 
           <BottomNav />
 
+          {/* PAYMENT: PaymentModal Component
           <PaymentModal
             isOpen={showPaymentModal}
             onClose={() => setShowPaymentModal(false)}
             onSuccess={handleAddCardSuccess}
           />
+          */}
 
           {renderGlobalModals()}
         </div>
@@ -1663,8 +1842,10 @@ const ClientContent: React.FC<ClientProps> = (props) => {
   if (screen === Screen.CLIENT_PROFILE) {
     return (
       <div className="flex flex-col h-full bg-background-dark text-white relative">
-        <div className="flex-1 overflow-y-auto p-4 pb-24">
-          <h1 className="text-2xl font-bold mb-6">{i18n.t('profile')}</h1>
+        <div className="flex-1 overflow-y-auto p-4 pb-32">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold">{i18n.t('profile')}</h1>
+          </div>
           <div className="flex items-center gap-4 mb-8">
             <div className="w-16 h-16 rounded-full bg-cover bg-center border-2 border-primary" style={{ backgroundImage: `url("${profileData.photo}")` }}></div>
             <div>
@@ -1682,10 +1863,10 @@ const ClientContent: React.FC<ClientProps> = (props) => {
               <div className="flex items-center gap-3"><span className="material-symbols-outlined text-slate-400">garage</span> <span>{i18n.t('my_garage')}</span></div>
               <span className="material-symbols-outlined text-slate-500">chevron_right</span>
             </button>
-            <button onClick={() => setShowPaymentModal(true)} className="w-full bg-surface-dark p-4 rounded-xl flex items-center justify-between border border-white/5 hover:bg-white/5 transition-colors">
+            <div className="w-full bg-surface-dark p-4 rounded-xl flex items-center justify-between border border-white/5 opacity-60 cursor-not-allowed">
               <div className="flex items-center gap-3"><span className="material-symbols-outlined text-slate-400">credit_card</span> <span>{i18n.t('payment_methods')}</span></div>
-              <span className="material-symbols-outlined text-slate-500">chevron_right</span>
-            </button>
+              <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded-lg font-bold border border-blue-500/30">Coming Soon</span>
+            </div>
             <button onClick={() => setShowAddressModal(true)} className="w-full bg-surface-dark p-4 rounded-xl flex items-center justify-between border border-white/5 hover:bg-white/5 transition-colors">
               <div className="flex items-center gap-3"><span className="material-symbols-outlined text-slate-400">location_on</span> <span>{i18n.t('my_addresses')}</span></div>
               <span className="material-symbols-outlined text-slate-500">chevron_right</span>
@@ -1694,9 +1875,9 @@ const ClientContent: React.FC<ClientProps> = (props) => {
 
 
             {/* Loyalty Program Button */}
-            <button onClick={() => setShowLoyaltyModal(true)} className="w-full bg-gradient-to-r from-amber-500/10 to-purple-500/10 p-4 rounded-xl flex items-center justify-between border border-amber-500/30 hover:border-amber-500/50 transition-colors group">
+            <button onClick={() => setShowLoyaltyModal(true)} className="w-full bg-gradient-to-r from-amber-500/10 to-purple-500/10 p-4 rounded-xl flex items-center justify-between border border-amber-500/30 hover:border-amber-500/50 transition-colors">
               <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-amber-400 group-hover:scale-110 transition-transform">stars</span>
+                <span className="material-symbols-outlined text-amber-400">stars</span>
                 <div className="text-left">
                   <span className="font-bold text-white">{i18n.t('loyalty_program')}</span>
                   <p className="text-xs text-slate-400">{i18n.t('loyalty_desc')}</p>
@@ -1725,207 +1906,52 @@ const ClientContent: React.FC<ClientProps> = (props) => {
               <span className="material-symbols-outlined text-slate-500">chevron_right</span>
             </button>
 
-            <button onClick={logout} className="w-full p-4 text-red-500 font-bold mt-4">{i18n.t('logout')}</button>
+            {/* Manual Push Notifications Request */}
+            <button
+              onClick={() => {
+                import('../services/pushNotificationService').then(m => {
+                  m.pushNotificationService.requestPermissionsIfNeeded().then(success => {
+                    if (success) showToast('Notification permissions requested', 'success');
+                    else showToast('Could not enable notifications', 'warning');
+                  });
+                });
+              }}
+              className="w-full bg-blue-500/10 p-4 rounded-xl flex items-center justify-between border border-blue-500/20 mt-8 hover:bg-blue-500/20 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-blue-400">notifications_active</span>
+                <div className="text-left">
+                  <span className="font-bold text-white">Enable Push Notifications</span>
+                  <p className="text-xs text-slate-400">Stay updated with your orders</p>
+                </div>
+              </div>
+              <span className="material-symbols-outlined text-blue-400">chevron_right</span>
+            </button>
+
+            {/* Log Out Button - Restored as per user request */}
+            <div className="mt-8 pt-6 border-t border-white/5">
+              <button
+                onClick={() => showConfirm('Logout', 'Are you sure you want to log out?', logout)}
+                className="w-full flex items-center justify-between p-4 bg-red-500/10 hover:bg-red-500/20 rounded-2xl transition-all border border-red-500/20"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-red-500">
+                    <span className="material-symbols-outlined">logout</span>
+                  </div>
+                  <div className="text-left">
+                    <div className="font-bold text-red-500">Log Out</div>
+                    <div className="text-xs text-white/40">Securely sign out of your account</div>
+                  </div>
+                </div>
+                <span className="material-symbols-outlined text-white/20">chevron_right</span>
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Bottom Navigation */}
         <BottomNav />
-
         {renderGlobalModals()}
-
-
-
-
-        {/* Edit Profile Modal */}
-        {
-          showEditProfileModal && (
-            <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-              <div className="bg-surface-dark w-full max-w-md rounded-2xl border border-white/10 p-6">
-                <h3 className="font-bold text-xl mb-6">{i18n.t('edit_profile')}</h3>
-                <div className="space-y-4">
-                  <div className="flex flex-col items-center mb-4">
-                    <div className="relative">
-                      <div className="w-24 h-24 rounded-full bg-cover bg-center border-4 border-primary" style={{ backgroundImage: `url("${profileData.photo}")` }}></div>
-                      <button onClick={handleProfileImageChange} className="absolute bottom-0 right-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center hover:bg-primary-dark shadow-lg border-2 border-surface-dark">
-                        <span className="material-symbols-outlined text-sm">photo_camera</span>
-                      </button>
-                      <input
-                        type="file"
-                        ref={profileInputRef}
-                        onChange={handleFilePhotoChange}
-                        accept="image/*"
-                        className="hidden"
-                      />
-                    </div>
-                    <p className="text-xs text-slate-400 mt-2">{i18n.t('click_camera')}</p>
-                  </div>
-                  <div><label className="text-xs text-slate-400 uppercase font-bold">{i18n.t('full_name')}</label><input type="text" value={profileData.name} onChange={e => setProfileData({ ...profileData, name: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 mt-1 text-white" /></div>
-                  <div><label className="text-xs text-slate-400 uppercase font-bold">{i18n.t('email_address')}</label><input type="email" value={profileData.email} onChange={e => setProfileData({ ...profileData, email: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 mt-1 text-white" /></div>
-                  <div><label className="text-xs text-slate-400 uppercase font-bold">{i18n.t('phone_number')}</label><input type="tel" value={profileData.phone} onChange={e => setProfileData({ ...profileData, phone: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 mt-1 text-white" /></div>
-                  <div>
-                    <label className="text-xs text-slate-400 uppercase font-bold">Home Address</label>
-                    <textarea
-                      value={profileData.address || ''}
-                      onChange={e => setProfileData({ ...profileData, address: e.target.value })}
-                      placeholder="Enter your full address..."
-                      rows={2}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl p-3 mt-1 text-white resize-none"
-                    />
-                    <p className="text-xs text-slate-400 mt-1">This will be your default service address</p>
-                  </div>
-                  <button onClick={handleSaveProfile} style={{ backgroundColor: '#3b82f6' }} className="w-full hover:brightness-90 h-12 rounded-xl font-bold mt-4 text-white shadow-blue transition-all">{i18n.t('save_changes')}</button>
-                  <button onClick={() => setShowEditProfileModal(false)} className="w-full text-slate-400 py-2">{i18n.t('cancel')}</button>
-                </div>
-              </div>
-            </div>
-          )
-        }
-
-        {/* Addresses Modal */}
-        {
-          showAddressModal && (
-            <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-              <div className="bg-surface-dark w-full max-w-md rounded-2xl border border-white/10 p-6 max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="font-bold text-xl">My Addresses</h3>
-                  <button onClick={() => setShowAddressModal(false)}><span className="material-symbols-outlined">close</span></button>
-                </div>
-                <div className="space-y-3 mb-6">
-                  {(addresses || []).map(addr => (
-                    <div key={addr.id} className="bg-white/5 p-4 rounded-xl border border-white/10">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-3">
-                          <span className="material-symbols-outlined text-primary">{addr.icon}</span>
-                          <div>
-                            <p className="font-bold">{addr.label}</p>
-                            <p className="text-sm text-slate-400">{addr.address}</p>
-                          </div>
-                        </div>
-                        <button onClick={() => handleDeleteAddress(addr.id)} className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition-colors">
-                          <span className="material-symbols-outlined text-lg">delete</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button onClick={() => setShowAddAddressModal(true)} className="w-full bg-primary h-12 rounded-xl font-bold flex items-center justify-center gap-2">
-                  <span className="material-symbols-outlined">add</span> Add New Address
-                </button>
-              </div>
-            </div>
-          )
-        }
-
-        {/* Payment Methods Modal */}
-        {
-          showPaymentModal && (
-            <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-              <div className="bg-surface-dark w-full max-w-md rounded-2xl border border-white/10 p-6 max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="font-bold text-xl">Payment Methods</h3>
-                  <button onClick={() => setShowPaymentModal(false)}><span className="material-symbols-outlined">close</span></button>
-                </div>
-                {!showAddCardForm ? (
-                  <>
-                    <div className="space-y-3 mb-6">
-                      {(cards || []).map(card => (
-                        <div key={card.id} className="bg-white/5 p-4 rounded-xl border border-white/10 flex justify-between items-center">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-6 bg-white/10 rounded flex items-center justify-center text-xs font-bold uppercase">{card.brand}</div>
-                            <div>
-                              <p className="font-bold">•••• {card.last4}</p>
-                              <p className="text-xs text-slate-400">Expires {card.expiry}</p>
-                            </div>
-                          </div>
-                          <button onClick={() => handleDeleteCard(card.id)} className="text-red-400 hover:text-red-300"><span className="material-symbols-outlined">delete</span></button>
-                        </div>
-                      ))}
-                    </div>
-                    <button onClick={() => setShowAddCardForm(true)} className="w-full bg-primary h-12 rounded-xl font-bold flex items-center justify-center gap-2 text-black"><span className="material-symbols-outlined">add</span> Add New Card</button>
-                  </>
-                ) : (
-                  <div className="space-y-4">
-                    <PaymentModal
-                      isOpen={showAddCardForm}
-                      onClose={() => setShowAddCardForm(false)}
-                      onSuccess={handleAddCardSuccess}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          )
-        }
-
-        {/* Claim Modal */}
-        {
-          showClaimModal && (
-            <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-              <div className="bg-surface-dark w-full max-w-md rounded-2xl border border-white/10 p-6">
-                <h3 className="font-bold text-xl mb-4 text-red-400 flex items-center gap-2"><span className="material-symbols-outlined">report_problem</span> Report an Issue</h3>
-                <p className="text-sm text-slate-400 mb-4">Please describe the issue and upload a photo if possible.</p>
-
-                <textarea
-                  value={claimDescription}
-                  onChange={e => setClaimDescription(e.target.value)}
-                  placeholder="Describe what happened..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl p-3 h-32 mb-4 text-white"
-                />
-
-                <div className="mb-6">
-                  <div
-                    onClick={handleClaimImageUpload}
-                    className="block w-full p-4 border-2 border-dashed border-white/10 rounded-xl text-center cursor-pointer hover:bg-white/5 transition-colors"
-                  >
-                    {claimImage ? (
-                      <img src={claimImage} className="h-32 mx-auto rounded-lg object-cover" />
-                    ) : (
-                      <div className="text-slate-400">
-                        <span className="material-symbols-outlined text-3xl mb-2">add_a_photo</span>
-                        <p className="text-xs">Tap to take car photo</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <button onClick={() => setShowClaimModal(false)} className="flex-1 py-3 rounded-xl font-bold text-slate-400 hover:bg-white/5">Cancel</button>
-                  <button onClick={submitClaim} className="flex-1 py-3 rounded-xl font-bold bg-red-500 text-white hover:bg-red-600">Submit Claim</button>
-                </div>
-              </div>
-            </div>
-          )
-        }
-
-        {/* Loyalty Program Modal */}
-        {showLoyaltyModal && (
-          <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-            <div className="bg-surface-dark w-full max-w-md rounded-2xl border border-white/10 max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-surface-dark border-b border-white/10 p-4 flex justify-between items-center z-10">
-                <h3 className="font-bold text-xl">Loyalty Program</h3>
-                <button onClick={() => setShowLoyaltyModal(false)}>
-                  <span className="material-symbols-outlined">close</span>
-                </button>
-              </div>
-              <div className="p-4">
-                <LoyaltyProgram userId={user?.id || ''} />
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="w-full absolute bottom-0"><BottomNav /></div>
-
-        {/* Float Chat Button - Only show when washer is en route or arrived/working */}
-        {
-          activeOrder && !showChat && activeOrder.status !== 'Pending' && activeOrder.status !== 'Assigned' && (
-            <FloatingChatButton onClick={() => setShowChat(true)} unreadCount={chatUnreadCount} label="Message Washer" />
-          )
-        }
-
-        {renderGlobalModals()}
-      </div >
+      </div>
     );
   }
 
@@ -2017,17 +2043,20 @@ const ClientContent: React.FC<ClientProps> = (props) => {
       );
     }
 
-    const basePrice = orderToView.price || 0;
+    const actualSubtotal = orderToView.basePrice || orderToView.price || 0;
+    const discountAmountTotal = orderToView.discountAmount || 0;
+    const finalBillTotal = orderToView.price || 0;
     const isRated = !!(orderToView.clientRating);
     const existingTip = orderToView.tip || 0;
 
     // State for rating flow - Initialize with existing or defaults
     // Note: detailed state management is lifted up to ClientScreens logic if needed, but local state works for this form
-    const totalWithTip = basePrice + currentTip;
+    // PAYMENT: Tip removed, total is just the base price
+    const totalWithTip = finalBillTotal;
 
     const handleTipSelect = (pct: number) => {
       if (isRated) return;
-      const tipAmount = basePrice * pct;
+      const tipAmount = actualSubtotal * pct;
       setCurrentTip(tipAmount);
       setShowCustomTipInput(false);
       setCustomTip('');
@@ -2079,7 +2108,7 @@ const ClientContent: React.FC<ClientProps> = (props) => {
         await submitOrderRating(orderToView.id, {
           clientRating: currentRating,
           clientReview: clientReviewText.trim(),
-          tip: currentTip,
+          tip: 0, // PAYMENT: Tip removed, always 0
           washerId: orderToView.washerId || ''
         });
 
@@ -2106,7 +2135,7 @@ const ClientContent: React.FC<ClientProps> = (props) => {
 
     return (
       <div className="fixed inset-0 flex flex-col bg-background-dark text-white z-50 overflow-hidden">
-        {/* Custom Header with Logo per User Request */}
+        {/* Custom Header with Logo */}
         <div className="absolute top-0 w-full p-4 flex justify-between items-center z-20 bg-gradient-to-b from-black/80 to-transparent">
           <button onClick={() => navigate(Screen.CLIENT_HOME)}><span className="material-symbols-outlined text-slate-300">arrow_back</span></button>
           <img src="/logo.png" alt="Logo" className="h-8 object-contain drop-shadow-md" />
@@ -2115,115 +2144,145 @@ const ClientContent: React.FC<ClientProps> = (props) => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 pt-20 pb-64">
+        <div className="flex-1 overflow-y-auto p-6 pt-20 pb-32">
 
-          {/* Status Header */}
-          <div className="text-center mb-8">
-            <div className="w-20 h-20 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center mb-4 mx-auto">
-              <span className="material-symbols-outlined text-4xl">check</span>
+          {/* Receipt Header */}
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center mb-3 mx-auto">
+              <span className="material-symbols-outlined text-3xl">check_circle</span>
             </div>
-            <h1 className="text-2xl font-bold mb-2">Service Completed</h1>
-            <p className="text-slate-400 text-sm">
-              {isRated ? 'Thank you for your feedback!' : 'How was your experience?'}
+            <h1 className="text-xl font-bold mb-1">Service Completed</h1>
+            <p className="text-sm text-slate-400">
+              {isRated ? 'Thank you for your feedback!' : 'Please review your service'}
             </p>
           </div>
 
-          {/* Rating Stars */}
-          <div className="flex justify-center gap-3 mb-8">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                onClick={() => !isRated && setCurrentRating(star)}
-                className={`transition-transform hover:scale-110 disabled:opacity-100 disabled:cursor-default`}
-                disabled={isRated}
-              >
-                <span className={`material-symbols-outlined text-5xl ${star <= (currentRating || 0) ? 'text-amber-400 filled' : 'text-slate-600'}`}>
-                  star
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* Conditional Comment Box (Visible if Rating < 5 OR if already rated with a review) */}
-          {(currentRating > 0 && currentRating < 5) || (isRated && orderToView.clientReview) ? (
-            <div className="w-full mb-8 animate-in fade-in slide-in-from-top-4 duration-300">
-              <p className="text-sm text-slate-300 mb-2 font-bold text-left w-full">Tell us what went wrong:</p>
-              <textarea
-                className="w-full bg-surface-dark border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-red-500 transition-colors h-24 resize-none"
-                placeholder="The washer was..."
-                value={clientReviewText}
-                onChange={(e) => setClientReviewText(e.target.value)}
-                disabled={isRated}
-              />
-            </div>
-          ) : null}
-
-          {/* Order Summary Card */}
-          <div className="w-full bg-surface-dark rounded-2xl p-4 border border-white/10 mb-6 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center text-primary">
-                <span className="material-symbols-outlined">local_car_wash</span>
-              </div>
-              <div className="text-left">
-                <p className="font-bold text-sm text-white">{orderToView.service}</p>
-                <p className="text-xs text-slate-400">{orderToView.vehicle} • {orderToView.vehicleColor || 'Vehicle'}</p>
+          {/* Professional Receipt Card */}
+          <div className="w-full bg-surface-dark rounded-2xl border border-white/10 mb-6 overflow-hidden">
+            {/* Receipt Header */}
+            <div className="bg-gradient-to-r from-primary/10 to-primary/5 border-b border-white/10 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-slate-400 uppercase font-bold mb-1">Order ID</p>
+                  <p className="text-sm font-mono text-white">{orderToView.id.slice(-8)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-slate-400 uppercase font-bold mb-1">Date</p>
+                  <p className="text-sm text-white">{new Date(orderToView.createdAt).toLocaleDateString()}</p>
+                </div>
               </div>
             </div>
-            <span className="font-bold text-lg text-white">${basePrice.toFixed(2)}</span>
-          </div>
 
-          {/* Service Photos removed for client in v2.7 - Admin only */}
+            {/* Service Details */}
+            <div className="p-4 border-b border-white/10">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center text-primary flex-shrink-0">
+                  <span className="material-symbols-outlined">local_car_wash</span>
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold text-white mb-1">{orderToView.service}</p>
+                  <p className="text-sm text-slate-400">{orderToView.vehicle}</p>
+                  {orderToView.vehicleColor && (
+                    <p className="text-xs text-slate-500">{orderToView.vehicleColor}</p>
+                  )}
+                </div>
+              </div>
 
-          {/* Tipping Section */}
-          <div className="w-full bg-surface-dark rounded-2xl p-6 border border-white/10 mb-24">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-bold text-sm">{isRated ? 'Tip Included' : 'Add a Tip'}</h3>
-              <span className="text-xs text-slate-500 flex items-center gap-1">
-                <span className="material-symbols-outlined text-xs text-green-500">volunteer_activism</span>
-                100% goes to washer
-              </span>
-            </div>
-
-            {!isRated ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-3">
-                  {[0.10, 0.15, 0.20].map(pct => (
-                    <button
-                      key={pct}
-                      onClick={() => handleTipSelect(pct)}
-                      className={`py-3 rounded-lg border transition-all font-bold text-sm ${Math.abs(currentTip - basePrice * pct) < 0.01 && currentTip > 0
-                        ? 'bg-primary border-primary text-black'
-                        : 'bg-background-dark border-slate-600 text-white hover:bg-white/5'
-                        }`}
-                    >
-                      {pct * 100}%
-                    </button>
+              {/* Add-ons if any */}
+              {orderToView.addons && orderToView.addons.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-white/5">
+                  <p className="text-xs text-slate-400 uppercase font-bold mb-2">Add-ons</p>
+                  {orderToView.addons.map((addon: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-center text-sm mb-1">
+                      <span className="text-slate-300">{addon.name}</span>
+                      <span className="text-white">${addon.price.toFixed(2)}</span>
+                    </div>
                   ))}
                 </div>
-                <p className="text-xs text-center text-slate-400 mt-2">Select a tip percentage to show your appreciation</p>
+              )}
+            </div>
+
+            {/* Billing Summary */}
+            <div className="p-4 space-y-2">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-400">Service</span>
+                <span className="text-white">${actualSubtotal.toFixed(2)}</span>
               </div>
-            ) : (
-              <div className="flex justify-between items-center p-3 bg-white/5 rounded-lg">
-                <span className="text-slate-400">Tip Amount</span>
-                <span className="font-bold text-green-400">${existingTip.toFixed(2)}</span>
+
+              {discountAmountTotal > 0 && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-green-400">Discount</span>
+                  <span className="text-green-400">-${discountAmountTotal.toFixed(2)}</span>
+                </div>
+              )}
+
+              <div className="border-t border-white/10 pt-3 mt-3">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-white">Total Amount</span>
+                  <span className="text-2xl font-bold text-primary">${finalBillTotal.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Payment Method Notice */}
+              <div className="mt-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <div className="flex items-start gap-2">
+                  <span className="material-symbols-outlined text-blue-400 text-sm mt-0.5">info</span>
+                  <p className="text-xs text-blue-300">
+                    <span className="font-bold">Payment due in cash</span> upon service completion.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Rating Section */}
+          <div className="w-full bg-surface-dark rounded-2xl border border-white/10 p-5 mb-6">
+            <h3 className="font-bold text-white mb-4 text-center">Rate Your Experience</h3>
+
+            {/* Rating Stars */}
+            <div className="flex justify-center gap-2 mb-5">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  onClick={() => !isRated && setCurrentRating(star)}
+                  className={`transition-transform hover:scale-110 disabled:opacity-100 disabled:cursor-default`}
+                  disabled={isRated}
+                >
+                  <span className={`material-symbols-outlined text-4xl ${star <= (currentRating || 0) ? 'text-amber-400 filled' : 'text-slate-600'}`}>
+                    star
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Comment Section */}
+            {currentRating > 0 && (
+              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                <label className="text-sm text-slate-300 mb-2 block">
+                  {currentRating < 5 ? 'Tell us what went wrong:' : 'Share your experience (optional):'}
+                </label>
+                <textarea
+                  className="w-full bg-background-dark border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-primary transition-colors h-24 resize-none"
+                  placeholder={currentRating < 5 ? "The washer was..." : "Great service! The washer was..."}
+                  value={clientReviewText}
+                  onChange={(e) => setClientReviewText(e.target.value)}
+                  disabled={isRated}
+                />
               </div>
             )}
           </div>
+
         </div>
 
         {/* Footer Action */}
         <div className="absolute bottom-0 w-full bg-surface-dark border-t border-white/10 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] z-20">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-slate-400">Total</span>
-            <span className="text-xl font-bold" id="total-price">${totalWithTip.toFixed(2)}</span>
-          </div>
-
           {!isRated && (
             <button
               onClick={submitRating}
-              className="w-full py-4 bg-primary hover:bg-primary/90 rounded-xl font-bold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!currentRating || currentRating === 0}
+              className="w-full py-4 bg-primary hover:bg-primary/90 rounded-xl font-bold text-base transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Finish
+              Submit Review
             </button>
           )}
           {isRated && (
@@ -2234,12 +2293,14 @@ const ClientContent: React.FC<ClientProps> = (props) => {
         </div>
 
         {/* Helper Comps */}
+        {renderGlobalModals()}
       </div>
     );
   }
 
 
-  // CLIENT_PAYMENT Screen
+  // PAYMENT: CLIENT_PAYMENT Screen - COMMENTED OUT (Payment screen is skipped)
+  /*
   if ((screen as any) === Screen.CLIENT_PAYMENT) {
     return (
       <div className="flex flex-col h-full bg-background-dark text-white">
@@ -2247,10 +2308,10 @@ const ClientContent: React.FC<ClientProps> = (props) => {
           <button onClick={() => navigate(Screen.CLIENT_SERVICE_SELECT)}><span className="material-symbols-outlined">arrow_back_ios_new</span></button>
           <h1 className="flex-1 text-center font-bold text-lg mr-6">Payment Method</h1>
         </header>
-
+   
         <div className="flex-1 overflow-y-auto p-4 pb-32">
           <h2 className="text-sm text-slate-400 uppercase font-bold mb-4">Select Payment Method</h2>
-
+   
           <div className="space-y-3 mb-6">
             {(cards || []).map(card => (
               <button
@@ -2275,7 +2336,7 @@ const ClientContent: React.FC<ClientProps> = (props) => {
               </button>
             ))}
           </div>
-
+   
           <button onClick={() => setShowPaymentModal(true)} className="w-full p-4 rounded-xl border-2 border-dashed border-white/20 text-slate-400 hover:border-primary hover:text-primary transition-colors">
             <div className="flex items-center justify-center gap-2">
               <span className="material-symbols-outlined">add</span>
@@ -2283,7 +2344,7 @@ const ClientContent: React.FC<ClientProps> = (props) => {
             </div>
           </button>
         </div>
-
+   
         <div className="absolute bottom-0 w-full bg-surface-dark border-t border-white/5 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <button
             onClick={() => navigate(Screen.CLIENT_CONFIRM)}
@@ -2295,6 +2356,8 @@ const ClientContent: React.FC<ClientProps> = (props) => {
       </div>
     );
   }
+  */
+
 
 
 
@@ -2330,10 +2393,12 @@ const ClientContent: React.FC<ClientProps> = (props) => {
     };
 
     return (
-      <div className="flex flex-col h-full bg-background-dark text-white">
+      <div className="flex flex-col h-full bg-background-dark text-white safe-area-top">
         <header className="flex items-center px-4 py-4 border-b border-white/5">
-          <button onClick={() => navigate(Screen.CLIENT_PROFILE)}><span className="material-symbols-outlined">arrow_back_ios_new</span></button>
-          <h1 className="flex-1 text-center font-bold text-lg mr-6">Report an Issue</h1>
+          <button onClick={() => navigate(Screen.CLIENT_PROFILE)} className="w-10 h-10 flex items-center justify-center -ml-2">
+            <span className="material-symbols-outlined text-2xl">chevron_left</span>
+          </button>
+          <h1 className="flex-1 text-center font-bold text-lg mr-8">Report an Issue</h1>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 pb-20">
@@ -2386,6 +2451,8 @@ const ClientContent: React.FC<ClientProps> = (props) => {
             Submit Report
           </button>
         </div>
+        <BottomNav />
+        {renderGlobalModals()}
       </div>
     );
   }
@@ -2574,7 +2641,8 @@ const ClientContent: React.FC<ClientProps> = (props) => {
     );
   }
 
-  // CLIENT_PAYMENT_METHODS Screen
+  // PAYMENT: CLIENT_PAYMENT_METHODS Screen - ENTIRE SCREEN COMMENTED OUT
+  /*
   if ((screen as any) === Screen.CLIENT_PAYMENT_METHODS) {
     console.log('💳 Rendering PaymentMethodsScreen');
     return (
@@ -2586,7 +2654,7 @@ const ClientContent: React.FC<ClientProps> = (props) => {
           onAddCard={() => setShowPaymentModal(true)}
           navigate={navigate}
         />
-        {/* Payment Methods Modal (Reused) */}
+        {/* Payment Methods Modal (Reused) *\/}
         {showPaymentModal && (
           <div className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4">
             <div className="bg-surface-dark w-full max-w-md rounded-2xl border border-white/10 p-6 max-h-[90vh] overflow-y-auto">
@@ -2627,11 +2695,17 @@ const ClientContent: React.FC<ClientProps> = (props) => {
       </>
     );
   }
+  */
 
   // CLIENT_CONFIRM Screen (Order Confirmation)
   if ((screen as any) === Screen.CLIENT_CONFIRM) {
     const handleConfirmOrder = (finalTotal: number, discount?: import('../types').Discount | null) => {
+      console.log('✅ handleConfirmOrder CALLED with total:', finalTotal);
+      console.log('📍 selectedLocation:', selectedLocation);
+      console.log('🏠 selectedAddress:', selectedAddress);
+
       if (!selectedLocation) {
+        console.error('❌ Missing location for order confirmation');
         showToast('Location error: Could not retrieve coordinates. Please re-select the address.', 'error');
         return;
       }
@@ -2664,11 +2738,16 @@ const ClientContent: React.FC<ClientProps> = (props) => {
         }
       }
 
+      const discountAmount = totalPrice - finalTotal;
+
       const orderData = {
         vehicleConfigs: vehicleConfigs || [],
         date: finalDate,
         time: finalTime,
-        price: totalPrice,
+        price: finalTotal,
+        basePrice: totalPrice,
+        discountAmount: discountAmount > 0 ? discountAmount : 0,
+        discountCode: discount?.code || '',
         packageName: summaryPackageName || 'Custom Service',
         estimatedDuration: '0 min',
         status: 'Pending' as const,
@@ -2690,15 +2769,18 @@ const ClientContent: React.FC<ClientProps> = (props) => {
             });
           }
 
-          // 2. PROCESS REAL STRIPE PAYMENT
-          const selectedCardData = cards.find(c => c.id === selectedCard) || cards[0];
-          if (!selectedCardData) {
-            throw new Error('No payment method selected');
-          }
+          // PAYMENT: 2. PROCESS REAL STRIPE PAYMENT - COMMENTED OUT
+          // PAYMENT: const selectedCardData = cards.find(c => c.id === selectedCard) || cards[0];
+          // PAYMENT: if (!selectedCardData) {
+          // PAYMENT:   throw new Error('No payment method selected');
+          // PAYMENT: }
+          // PAYMENT:
+          // PAYMENT: console.log('💳 Processing Stripe payment for order:', docId);
+          // PAYMENT: await StripeService.createPayment(totalPrice, selectedCardData.id, docId);
+          // PAYMENT: console.log('✅ Payment processed successfully');
 
-          console.log('💳 Processing Stripe payment for order:', docId);
-          await StripeService.createPayment(totalPrice, selectedCardData.id, docId);
-          console.log('✅ Payment processed successfully');
+          // PAYMENT DISABLED: Orders are now created without payment processing
+          console.log('ℹ️ Payment processing disabled - order created with pending payment status');
 
           setIsProcessingOrder(false);
           // OPTIMISTIC UPDATE: Add to active orders immediately
@@ -2751,18 +2833,24 @@ const ClientContent: React.FC<ClientProps> = (props) => {
           onConfirmOrder={handleConfirmOrder}
           navigate={navigate}
           showFeesToClient={false}
-          selectedCard={(() => {
-            const currentCards = cards || [];
-            const allCards = currentCards.length > 0 ? currentCards : (user?.savedCards || []);
-            const cardId = selectedCard || user?.savedCards?.[0]?.id;
-            return allCards.find(c => c.id === cardId) || allCards[0] || null;
-          })()}
-          onAddCard={() => {
-            navigate(Screen.CLIENT_PAYMENT_METHODS);
-          }}
+          // PAYMENT: selectedCard prop commented out
+          // PAYMENT: selectedCard={(() => {
+          // PAYMENT:   const currentCards = cards || [];
+          // PAYMENT:   // Filter invalid cards from fallback source too
+          // PAYMENT:   const fallbackCards = (user?.savedCards || []).filter(c => c.id.startsWith('pm_') || c.id.startsWith('card_'));
+          // PAYMENT:
+          // PAYMENT:   const allCards = currentCards.length > 0 ? currentCards : fallbackCards;
+          // PAYMENT:   const cardId = selectedCard || fallbackCards?.[0]?.id;
+          // PAYMENT:   return allCards.find(c => c.id === cardId) || allCards[0] || null;
+          // PAYMENT: })()}
+          // PAYMENT: onAddCard={() => {
+          // PAYMENT:   navigate(Screen.CLIENT_PAYMENT_METHODS);
+          // PAYMENT: }}
           userId={user.id}
+          isProcessing={isProcessingOrder}
         />
 
+        {/* PAYMENT: Payment Modal in CLIENT_CONFIRM - ENTIRE SECTION COMMENTED OUT
         {showPaymentModal && (
           <div className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4">
             <div className="bg-surface-dark w-full max-w-md rounded-2xl border border-white/10 p-6 max-h-[90vh] overflow-y-auto">
@@ -2800,6 +2888,7 @@ const ClientContent: React.FC<ClientProps> = (props) => {
             </div>
           </div>
         )}
+        */ }
       </>
     );
   }

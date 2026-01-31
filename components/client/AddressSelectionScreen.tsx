@@ -59,6 +59,15 @@ export const AddressSelectionScreen: React.FC<AddressSelectionScreenProps> = ({
             setIsGeocoding(false);
             if (status === 'OK' && results && results[0] && results[0].geometry.location) {
                 const location = results[0].geometry.location;
+
+                // ✅ VALIDATE SERVICE AREA
+                if (!isWithinServiceArea(location.lat(), location.lng(), serviceArea)) {
+                    showToast('Sorry, this address is outside our service area.', 'error');
+                    setSelectedAddress('');
+                    setSelectedLocation(null);
+                    return;
+                }
+
                 // KEEP ORIGINAL STRING to ensure UI border check (selectedAddress === addr.address) passes
                 setSelectedAddress(address);
                 setSelectedLocation({
@@ -146,7 +155,17 @@ export const AddressSelectionScreen: React.FC<AddressSelectionScreenProps> = ({
             showToast('Please select or enter a valid address', 'error');
             return;
         }
-        navigate(Screen.CLIENT_PAYMENT_METHODS);
+
+        // ✅ VALIDATE SERVICE AREA BEFORE CONTINUING
+        if (selectedLocation.lat !== 0 && selectedLocation.lng !== 0) {
+            if (!isWithinServiceArea(selectedLocation.lat, selectedLocation.lng, serviceArea)) {
+                showToast('Sorry, this address is outside our service area.', 'error');
+                return;
+            }
+        }
+
+        // PAYMENT: Skipping payment screen, going directly to confirmation
+        navigate(Screen.CLIENT_CONFIRM);
     };
 
     const handleDelete = async (e: React.MouseEvent, id: string) => {
@@ -165,7 +184,7 @@ export const AddressSelectionScreen: React.FC<AddressSelectionScreenProps> = ({
                 <h1 className="flex-1 text-center font-bold text-lg mr-6">Service Address</h1>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-4 pb-32">
+            <div className="flex-1 overflow-y-auto p-4 pb-64">
                 {!isEditing ? (
                     <>
                         <p className="text-slate-400 text-sm mb-6">Where should we wash your vehicle(s)?</p>

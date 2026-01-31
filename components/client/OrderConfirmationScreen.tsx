@@ -18,6 +18,7 @@ interface OrderConfirmationScreenProps {
     selectedCard?: { id: string; brand: string; last4: string; expiry: string } | null;
     onAddCard?: () => void;
     userId?: string;
+    isProcessing?: boolean; // NEW: Loading state
 }
 
 export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
@@ -36,7 +37,8 @@ export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = (
     showFeesToClient = false,
     selectedCard = null,
     onAddCard = () => { },
-    userId
+    userId,
+    isProcessing = false
 }) => {
     const [discountCode, setDiscountCode] = useState('');
     const [appliedDiscount, setAppliedDiscount] = useState<Discount | null>(null);
@@ -158,7 +160,7 @@ export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = (
                 <h1 className="flex-1 text-center font-bold text-lg mr-6">Confirm Order</h1>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-4 pb-32">
+            <div className="flex-1 overflow-y-auto p-4 pb-96"> {/* Extra large padding to ensure scrolling past the sticky footer */}
                 <p className="text-slate-400 text-sm mb-6">Review your order details</p>
 
                 {/* Vehicles Section */}
@@ -305,37 +307,19 @@ export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = (
 
                 {/* Payment Method */}
                 <div className="space-y-4 mb-6">
-                    <div className="flex justify-between items-center">
-                        <h2 className="text-sm text-slate-400 uppercase font-bold">Payment Method</h2>
-                        {selectedCard && (
-                            <button
-                                onClick={onAddCard}
-                                className="text-primary text-sm font-bold flex items-center gap-1"
-                            >
-                                Change
-                            </button>
-                        )}
-                    </div>
+                    <h2 className="text-sm text-slate-400 uppercase font-bold">Payment Method</h2>
 
-                    <div className="space-y-2">
-                        <div
-                            onClick={onAddCard}
-                            className="p-4 rounded-xl bg-surface-dark border border-white/10 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-all"
-                        >
-                            <div className="flex items-start gap-3">
-                                <span className="material-symbols-outlined text-primary mt-0.5">credit_card</span>
-                                <div className="flex-1">
-                                    {selectedCard ? (
-                                        <>
-                                            <p className="font-bold">{selectedCard.brand} •••• {selectedCard.last4}</p>
-                                            <p className="text-xs text-slate-400 mt-1">Expires {selectedCard.expiry}</p>
-                                        </>
-                                    ) : (
-                                        <p className="text-sm font-medium text-slate-400">Select Payment Method</p>
-                                    )}
+                    <div className="p-4 rounded-xl bg-surface-dark border border-white/10">
+                        <div className="flex items-start gap-3">
+                            <span className="material-symbols-outlined text-green-400 mt-0.5">payments</span>
+                            <div className="flex-1">
+                                <p className="font-bold text-white">Pay to Washer</p>
+                                <p className="text-xs text-slate-400 mt-1">Pay cash when service is completed</p>
+                                <div className="mt-2 flex items-center gap-2 text-xs text-blue-400">
+                                    <span className="material-symbols-outlined text-sm">info</span>
+                                    <span>Coming soon: Card payment</span>
                                 </div>
                             </div>
-                            <span className="material-symbols-outlined text-slate-400">arrow_forward_ios</span>
                         </div>
                     </div>
                 </div>
@@ -409,12 +393,38 @@ export const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = (
                         <p className="text-xs text-primary font-bold">{selectedOption === 'asap' ? 'Wash Now' : 'Scheduled'}</p>
                     </div>
                 </div>
+
+                {/* Payment Notice */}
+                <div className="mb-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <div className="flex items-start gap-2">
+                        <span className="material-symbols-outlined text-blue-400 text-sm mt-0.5">info</span>
+                        <p className="text-xs text-blue-300">
+                            <span className="font-bold">Pay cash when service is completed.</span> We will soon incorporate card payments for greater convenience.
+                        </p>
+                    </div>
+                </div>
+
                 <button
-                    onClick={() => onConfirmOrder(finalTotal, appliedDiscount)}
-                    style={{ backgroundColor: '#3b82f6' }}
-                    className="w-full h-14 rounded-xl font-bold text-lg text-white shadow-blue active:scale-[0.98] transition-all"
+                    onClick={() => {
+                        console.log('🔘 "Confirm & Place Order" button CLICKED in OrderConfirmationScreen.tsx');
+                        console.log('📊 finalTotal:', finalTotal);
+                        console.log('⏳ isProcessing:', isProcessing);
+                        if (!isProcessing) {
+                            onConfirmOrder(finalTotal, appliedDiscount);
+                        }
+                    }}
+                    disabled={isProcessing}
+                    style={{ backgroundColor: isProcessing ? '#1e293b' : '#3b82f6' }}
+                    className={`w-full h-14 rounded-xl font-bold text-lg text-white shadow-blue active:scale-[0.98] transition-all flex items-center justify-center gap-2 ${isProcessing ? 'cursor-not-allowed opacity-70' : ''}`}
                 >
-                    Confirm & Place Order
+                    {isProcessing ? (
+                        <>
+                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            Creating Order...
+                        </>
+                    ) : (
+                        'Confirm & Place Order'
+                    )}
                 </button>
             </div>
         </div>

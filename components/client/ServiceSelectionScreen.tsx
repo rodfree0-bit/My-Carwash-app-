@@ -96,7 +96,7 @@ export const ServiceSelectionScreen: React.FC<ServiceSelectionScreenProps> = ({
                 <h1 className="flex-1 text-center font-bold text-lg mr-8">Select Services</h1>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-4 pb-32">
+            <div className="flex-1 overflow-y-auto p-4 pb-64">
                 {/* Vehicle Progress */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between mb-2">
@@ -131,7 +131,37 @@ export const ServiceSelectionScreen: React.FC<ServiceSelectionScreenProps> = ({
                         <div className="grid gap-3">
                             {packages.map((pkg) => {
                                 const isSelected = currentConfig?.packageId === pkg.id;
-                                const price = pkg.price?.[currentVehicleType as VehicleType] || 0;
+
+                                // Robust Price Lookup Helper
+                                const getPrice = (prices: Record<string, number>, type: string): number => {
+                                    if (!prices) return 0;
+
+                                    // 1. Exact match
+                                    if (prices[type] !== undefined) return prices[type];
+
+                                    // 2. Case insensitive
+                                    const lowerType = type.toLowerCase();
+                                    const caseKey = Object.keys(prices).find(k => k.toLowerCase() === lowerType);
+                                    if (caseKey && prices[caseKey] !== undefined) return prices[caseKey];
+
+                                    // 3. Legacy Mappings (The critical fix for "sedan" vs "midsize_sedan")
+                                    if (lowerType === 'sedan') {
+                                        if (prices['midsize_sedan'] !== undefined) return prices['midsize_sedan'];
+                                        if (prices['compact_car'] !== undefined) return prices['compact_car'];
+                                        if (prices['Sedan'] !== undefined) return prices['Sedan'];
+                                    }
+                                    if (lowerType === 'suv') {
+                                        if (prices['SUV'] !== undefined) return prices['SUV'];
+                                    }
+                                    if (lowerType === 'truck') {
+                                        if (prices['compact_truck'] !== undefined) return prices['compact_truck'];
+                                        if (prices['fullsize_truck'] !== undefined) return prices['fullsize_truck'];
+                                    }
+
+                                    return 0;
+                                };
+
+                                const price = getPrice(pkg.price, currentVehicleType);
 
                                 return (
                                     <button
@@ -190,7 +220,23 @@ export const ServiceSelectionScreen: React.FC<ServiceSelectionScreenProps> = ({
                         <div className="grid gap-3">
                             {addons.map((addon) => {
                                 const isSelected = (currentConfig?.addonIds || []).includes(addon.id);
-                                const price = addon.price?.[currentVehicleType as VehicleType] || 0;
+
+                                // Re-use the logic (simplified inline or we could hoist it, but inline is safe here for reading context)
+                                const getPrice = (prices: Record<string, number>, type: string): number => {
+                                    if (!prices) return 0;
+                                    if (prices[type] !== undefined) return prices[type];
+                                    const lowerType = type.toLowerCase();
+                                    const caseKey = Object.keys(prices).find(k => k.toLowerCase() === lowerType);
+                                    if (caseKey && prices[caseKey] !== undefined) return prices[caseKey];
+                                    if (lowerType === 'sedan') {
+                                        if (prices['midsize_sedan'] !== undefined) return prices['midsize_sedan'];
+                                        if (prices['compact_car'] !== undefined) return prices['compact_car'];
+                                        if (prices['Sedan'] !== undefined) return prices['Sedan'];
+                                    }
+                                    return 0;
+                                };
+
+                                const price = getPrice(addon.price, currentVehicleType);
 
                                 return (
                                     <button
@@ -218,7 +264,7 @@ export const ServiceSelectionScreen: React.FC<ServiceSelectionScreenProps> = ({
             </div>
 
             {/* Bottom Button Bar */}
-            <div className="fixed bottom-0 left-0 right-0 p-4 pb-8 bg-gradient-to-t from-background-dark via-background-dark/95 to-transparent backdrop-blur-sm">
+            <div className="fixed bottom-0 left-0 right-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-background-dark via-background-dark/95 to-transparent backdrop-blur-sm">
                 <button
                     onClick={handleNext}
                     disabled={!canProceed}

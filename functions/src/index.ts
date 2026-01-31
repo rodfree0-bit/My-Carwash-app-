@@ -3,6 +3,12 @@
  * 
  * Este archivo exporta todas las Cloud Functions para Stripe y SendGrid
  */
+import * as admin from 'firebase-admin';
+
+// Initialize Admin SDK once for all functions
+if (!admin.apps.length) {
+    admin.initializeApp();
+}
 
 // Notification Functions
 // export { sendReceipt } from './sendReceipt';
@@ -17,7 +23,7 @@ export { onOrderUpdated } from './onOrderUpdated';
 
 // Scheduled Notification Functions (DISABLED - Manual Control Only)
 // // export { sendWeatherNotifications } from './scheduledWeatherNotifications';
-// export { sendInactivityReminders } from './scheduledInactivityReminders';
+export { sendInactivityRemindersManual as sendInactivityReminders } from './manualNotifications';
 
 // Manual Notification Functions (Admin Panel)
 export { sendWeatherNotificationsManual, sendInactivityRemindersManual } from './manualNotifications';

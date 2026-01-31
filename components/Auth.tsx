@@ -55,7 +55,10 @@ const CustomInput = ({ label, type, value, onChange, placeholder }: any) => {
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className="w-full bg-white/5 border border-white/10 rounded-xl p-4 md:p-4 text-white placeholder-slate-500 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary transition-all pr-12 text-base min-h-[48px]"
+          className="w-full bg-white/5 border border-white/10 rounded-xl p-4 md:p-4 text-white placeholder-slate-500 focus:outline-none focus:border-primary transition-all pr-12 text-base min-h-[48px]"
+          autoCapitalize="none"
+          autoComplete={isPassword ? 'current-password' : (type === 'email' ? 'email' : 'off')}
+          spellCheck={false}
           style={{ fontSize: '16px' }}
         />
         {isPassword && (

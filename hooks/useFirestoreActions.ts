@@ -165,6 +165,8 @@ export const useFirestoreActions = () => {
 
             const orderData = orderSnap.data() as Order;
             const basePrice = orderData.basePrice || orderData.price || 0;
+            const tipAmount = ratingData.tip || 0;
+            const totalToCharge = basePrice + tipAmount;
 
             // Get Global Fees from settings
             const settingsRef = doc(db, 'settings', 'fees');
@@ -173,35 +175,47 @@ export const useFirestoreActions = () => {
 
             // Calculate final financial breakdown
             const financials = calculateOrderFinancials(
-                { ...orderData, tip: ratingData.tip, basePrice },
+                { ...orderData, tip: tipAmount, basePrice },
                 globalFees
             );
 
-            // 1. Update Order with ONLY rating, review, tip
-            const updateData = {
+            // 1. Update Order with rating, review, tip, and FINANCIALS
+            // Also mark as Completed finally if not already
+            const updateData: any = {
                 rating: ratingData.clientRating,
                 review: ratingData.clientReview,
-                tip: ratingData.tip
+                tip: tipAmount,
+                ...financials // Save the breakdown (appRevenue, washerEarnings, etc.)
             };
 
-            await updateOrder(orderId, updateData);
-            console.log('✅ Firestore order updated with rating/tip');
-
-            // 1b. CHARGE TIP VIA STRIPE IF APPLICABLE
-            if (ratingData.tip > 0 && orderData.paymentMethod === 'stripe' && orderData.stripePaymentMethodId) {
+            // 2. CHARGE TOTAL VIA STRIPE (Base + Tip)
+            // Rule: "se cobra todo cuando el cliente termine la orden"
+            if (orderData.paymentMethod === 'stripe' && orderData.stripePaymentMethodId && orderData.paymentStatus !== 'Paid') {
                 try {
-                    console.log(`💳 Charging tip of $${ratingData.tip} to card ${orderData.stripePaymentMethodId}...`);
-                    await StripeService.createPayment(ratingData.tip, orderData.stripePaymentMethodId, orderId);
-                    console.log('✅ Stripe tip payment successful');
+                    console.log(`💳 Charging TOTAL of $${totalToCharge} (Base: ${basePrice} + Tip: ${tipAmount}) to card ${orderData.stripePaymentMethodId}...`);
+
+                    // Call stripe service with TOTAL
+                    await StripeService.createPayment(totalToCharge, orderData.stripePaymentMethodId, orderId);
+
+                    console.log('✅ Stripe Payment Successful');
+                    updateData.paymentStatus = 'Paid';
+                    updateData.paidAt = new Date().toISOString();
+
                 } catch (stripeErr) {
-                    console.error('❌ Failed to charge tip on Stripe:', stripeErr);
-                    // We don't throw here to avoid failing the whole rating process, 
-                    // but we should probably mark it somehow.
+                    console.error('❌ Failed to charge total on Stripe:', stripeErr);
+                    updateData.paymentStatus = 'Failed';
+                    // We allow the flow to continue but mark as failed so admin sees it
                 }
+            } else if (orderData.paymentMethod === 'cash') {
+                updateData.paymentStatus = 'Pending'; // Cash logic handled elsewhere
             }
 
-            // 2. Update Washer Profile (Rating & Availability) via SERVER
-            if (ratingData.washerId) {
+            // Apply updates
+            await updateOrder(orderId, updateData);
+            console.log('✅ Firestore order updated with rating, tip, and financials');
+
+            // 3. Update Washer Profile (Rating & Availability) via SERVER
+            if (ratingData.washerId && ratingData.clientRating > 0) {
                 try {
                     await StripeService.updateWasherRating(ratingData.washerId, ratingData.clientRating);
                     console.log('✅ Washer profile updated via server');
@@ -556,7 +570,7 @@ export const useFirestoreActions = () => {
                 console.log("🔍 CancelOrder Transaction - Data:", orderData);
 
                 // Enforce fee if washer was assigned
-                // User: "si ya la agarro el cliente cobras 10... dale los 10 dolares a el completes"
+                // User: "no se cobra nada si el cliente cancela antes de que un washer la asigne"
                 const hasWasher = !!(orderData.washerId && orderData.washerId.trim() !== "");
                 const isNotPending = orderData.status !== "Pending";
                 const shouldChargeFee = hasWasher && isNotPending;
@@ -577,6 +591,7 @@ export const useFirestoreActions = () => {
                 } else {
                     updateData.price = 0;
                     updateData.washerEarnings = 0;
+                    updateData.paymentStatus = 'Voided'; // Explicitly mark as Voided/No Charge
                 }
 
                 console.log("🔥 Updating Order in Firestore:", orderId, updateData);
@@ -606,7 +621,7 @@ export const useFirestoreActions = () => {
                         'Order Cancelled',
                         shouldChargeFee
                             ? 'Order cancelled. A $10 fee applies as a washer was assigned.'
-                            : 'Order cancelled successfully.',
+                            : 'Order cancelled successfully. No charge applied.',
                         'info',
                         'CLIENT_HOME',
                         orderId

@@ -1,5 +1,6 @@
-import { db } from '../firebase';
-import { collection, addDoc, updateDoc, doc, getDoc, onSnapshot, serverTimestamp, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
+// Firebase will be loaded from CDN in index.html
+// Firebase config and initialization will be in index.html
+
 
 // Navbar scroll effect
 const navbar = document.querySelector('.navbar');
@@ -166,6 +167,9 @@ function addMessageToUI(text, type, id) {
 function subscribeToMessages(ticketId) {
     if (unsubscribe) unsubscribe(); // Unsubscribe previous listener if any
 
+    const { collection, query, orderBy, onSnapshot } = window.firestoreFunctions;
+    const db = window.db;
+
     const q = query(
         collection(db, 'supportTickets', ticketId, 'messages'),
         orderBy('timestamp', 'asc')
@@ -245,6 +249,9 @@ async function sendMessage() {
     chatInput.value = '';
 
     try {
+        const { collection, addDoc, updateDoc, doc, getDoc, serverTimestamp } = window.firestoreFunctions;
+        const db = window.db;
+
         const userData = JSON.parse(localStorage.getItem('chatUser') || '{"name": "Visitor", "contact": "Unknown", "location": "Unknown"}');
 
         // STRATEGY: Use localStorage as primary source of truth for ticketId

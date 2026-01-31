@@ -368,7 +368,59 @@
         </div>
     </div>
 
-    <script type="module" src="script.js"></script>
+    <!-- Firebase SDK from CDN -->
+    <script type="module">
+        // Import Firebase modules from CDN
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, addDoc, updateDoc, doc, getDoc, onSnapshot, serverTimestamp, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Firebase configuration (same as your main app)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBiPHCELzpPDGjXIBZKUMqHKLcjpKCXAd4",
+            authDomain: "my-carwashapp-e6aba.firebaseapp.com",
+            projectId: "my-carwashapp-e6aba",
+            storageBucket: "my-carwashapp-e6aba.firebasestorage.app",
+            messagingSenderId: "1095794498344",
+            appId: "1:1095794498344:web:a74ee23bf82d7a6da84e1d"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Make db and Firestore functions available globally for script.js
+        window.db = db;
+        window.firestoreFunctions = {
+            collection,
+            addDoc,
+            updateDoc,
+            doc,
+            getDoc,
+            onSnapshot,
+            serverTimestamp,
+            query,
+            orderBy
+        };
+
+        // Signal that Firebase is ready
+        window.firebaseReady = true;
+        window.dispatchEvent(new Event('firebaseReady'));
+    </script>
+
+    <script>
+        // Wait for Firebase to be ready before loading main script
+        function loadMainScript() {
+            const script = document.createElement('script');
+            script.src = 'script.js?v=' + Date.now(); // Cache buster
+            document.body.appendChild(script);
+        }
+
+        if (window.firebaseReady) {
+            loadMainScript();
+        } else {
+            window.addEventListener('firebaseReady', loadMainScript);
+        }
+    </script>
 </body>
 
 </html>

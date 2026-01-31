@@ -174,7 +174,7 @@ export const DateTimeSelectionScreen: React.FC<DateTimeSelectionScreenProps> = (
                 <h1 className="flex-1 text-center font-bold text-lg mr-6">Date & Time</h1>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-4 pb-32">
+            <div className="flex-1 overflow-y-auto p-4 pb-64">
                 <p className="text-slate-400 text-sm mb-6">When would you like your wash?</p>
 
                 {/* Date & Time Selection */}

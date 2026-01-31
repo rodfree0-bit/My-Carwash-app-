@@ -4,6 +4,7 @@ import { Order, User, Message } from '../types';
 import { TrackingMap } from './TrackingMap';
 import { OrderChat } from './OrderChat';
 import { useRealTimeETA } from '../services/etaService';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface TrackingUIProps {
     activeTrackingOrder: Order | null;
@@ -41,6 +42,36 @@ export const TrackingUI: React.FC<TrackingUIProps> = ({
     const [selectedTipPct, setSelectedTipPct] = React.useState(0);
     const [currentTip, setCurrentTip] = React.useState(0);
     const [clientReviewText, setClientReviewText] = React.useState('');
+
+    // Confirmation Modal State
+    const [confirmModal, setConfirmModal] = React.useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        type?: 'danger' | 'primary';
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+        type: 'primary'
+    });
+
+    const showConfirm = (title: string, message: string, onConfirm: () => void, type: 'danger' | 'primary' = 'primary') => {
+        setConfirmModal({
+            isOpen: true,
+            title,
+            message,
+            onConfirm: () => {
+                onConfirm();
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            },
+            type
+        });
+    };
+
+    const closeConfirm = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
 
     // Real-time ETA hook (NEW)
     const { eta: liveEta, isLoading: etaLoading } = useRealTimeETA(
@@ -149,10 +180,15 @@ export const TrackingUI: React.FC<TrackingUIProps> = ({
                         <p className="text-slate-300 mb-10 text-lg">Your washer has arrived. Please approve to begin.</p>
                         <div className="w-full max-w-sm space-y-4">
                             <button onClick={async () => {
-                                if (window.confirm('Confirm washer arrival?')) {
-                                    await updateOrder(activeTrackingOrder.id, { clientAuthorized: true });
-                                    showNativeToast('Service authorized!');
-                                }
+                                showConfirm(
+                                    'Confirm Arrival',
+                                    'Confirm washer arrival?',
+                                    async () => {
+                                        await updateOrder(activeTrackingOrder.id, { clientAuthorized: true });
+                                        showNativeToast('Service authorized!');
+                                    },
+                                    'primary'
+                                );
                             }} className="w-full bg-primary py-4 rounded-xl font-black text-white flex items-center justify-center gap-2 uppercase tracking-widest text-sm">
                                 <span className="material-symbols-outlined">play_circle</span> Authorize Start
                             </button>
@@ -165,12 +201,26 @@ export const TrackingUI: React.FC<TrackingUIProps> = ({
 
                 {/* 5. IN PROGRESS */}
                 {(activeTrackingOrder.status === 'In Progress') && (
-                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in bg-black w-full">
+                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in bg-black w-full overflow-y-auto">
                         <h2 className="text-4xl font-black mb-4 text-white tracking-tight">Washing your Car!</h2>
                         <div className="flex items-center gap-3 bg-primary/10 px-6 py-3 rounded-full border border-primary/20 shadow-blue mb-8">
                             <span className="w-2 h-2 bg-primary rounded-full animate-pulse"></span>
                             <p className="text-primary font-bold tracking-widest text-sm uppercase">In Progress</p>
                         </div>
+
+                        {/* Before Photos Section */}
+                        {activeTrackingOrder.photos?.before && Object.keys(activeTrackingOrder.photos.before).length > 0 && (
+                            <div className="w-full max-w-sm mt-4">
+                                <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4 text-left">Before Photos</h3>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {Object.values(activeTrackingOrder.photos.before).map((url: any, idx) => (
+                                        <div key={idx} className="aspect-square rounded-2xl overflow-hidden border border-white/10 bg-white/5">
+                                            <img src={url} alt="Before" className="w-full h-full object-cover" onClick={() => window.open(url, '_blank')} />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -181,6 +231,21 @@ export const TrackingUI: React.FC<TrackingUIProps> = ({
                             <span className="material-symbols-outlined text-6xl text-primary font-bold animate-bounce mb-4">check_circle</span>
                             <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tighter">Wash Completed!</h2>
                         </div>
+
+                        {/* After Photos Section */}
+                        {activeTrackingOrder.photos?.after && Object.keys(activeTrackingOrder.photos.after).length > 0 && (
+                            <div className="mb-6">
+                                <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Results</h3>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {Object.values(activeTrackingOrder.photos.after).map((url: any, idx) => (
+                                        <div key={idx} className="aspect-square rounded-2xl overflow-hidden border border-primary/20 bg-white/5 shadow-blue">
+                                            <img src={url} alt="After" className="w-full h-full object-cover" onClick={() => window.open(url, '_blank')} />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="bg-surface-dark border border-white/10 rounded-3xl p-6 shadow-2xl mb-6">
                             <p className="text-center text-xs font-black text-slate-500 mb-6 uppercase tracking-[0.2em]">Rate your experience</p>
                             <div className="flex justify-center gap-3 mb-8">
@@ -245,6 +310,16 @@ export const TrackingUI: React.FC<TrackingUIProps> = ({
                     onClose={() => setShowOrderChat(false)}
                 />
             )}
+
+            {/* Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={confirmModal.isOpen}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                onConfirm={confirmModal.onConfirm}
+                onCancel={closeConfirm}
+                type={confirmModal.type}
+            />
         </div>
     );
 };

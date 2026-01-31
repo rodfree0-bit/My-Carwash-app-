@@ -219,16 +219,41 @@ export const SupportChatClient: React.FC<SupportChatClientProps> = ({ currentUse
                             <p className="text-xs text-white/80">Online 24/7</p>
                         </div>
                     </div>
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onClose();
-                        }}
-                        className="w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 active:bg-white/30 rounded-full transition-colors touch-manipulation"
-                        aria-label="Close chat"
-                    >
-                        <span className="material-symbols-outlined text-white text-2xl font-bold">close</span>
-                    </button>
+
+                    <div className="flex items-center gap-2">
+                        {ticketId && (
+                            <button
+                                onClick={async () => {
+                                    if (window.confirm('Are you sure you want to finish this chat? It will clear the history.')) {
+                                        try {
+                                            await updateDoc(doc(db, 'supportTickets', ticketId), {
+                                                status: 'closed'
+                                            });
+                                            setTicketId(null);
+                                            setMessages([]);
+                                            onClose();
+                                        } catch (error) {
+                                            console.error('Error closing ticket:', error);
+                                        }
+                                    }
+                                }}
+                                className="px-3 py-1.5 bg-white/10 hover:bg-red-500/20 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 border border-white/10"
+                            >
+                                <span className="material-symbols-outlined text-sm">done_all</span>
+                                Finish Chat
+                            </button>
+                        )}
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onClose();
+                            }}
+                            className="w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 active:bg-white/30 rounded-full transition-colors touch-manipulation"
+                            aria-label="Close chat"
+                        >
+                            <span className="material-symbols-outlined text-white text-2xl font-bold">close</span>
+                        </button>
+                    </div>
                 </div>
 
                 {/* Messages Container */}

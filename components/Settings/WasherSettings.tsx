@@ -3,6 +3,7 @@ import { Screen } from '../../types';
 import { storage } from '../../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { i18n } from '../../services/i18n';
+import { ConfirmationModal } from '../ConfirmationModal';
 
 interface WasherSettingsProps {
     currentUser: any;
@@ -40,6 +41,36 @@ export const WasherSettings: React.FC<WasherSettingsProps> = ({
     const [notificationsEnabled, setNotificationsEnabled] = useState(currentUser?.notificationsEnabled ?? true);
     const [isAvailable, setIsAvailable] = useState(currentUser?.isAvailable ?? true);
     const [schedule, setSchedule] = useState<any[]>(currentUser?.schedule || []);
+
+    // Confirmation Modal State
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        type?: 'danger' | 'primary';
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+        type: 'primary'
+    });
+
+    const showConfirm = (title: string, message: string, onConfirm: () => void, type: 'danger' | 'primary' = 'primary') => {
+        setConfirmModal({
+            isOpen: true,
+            title,
+            message,
+            onConfirm: () => {
+                onConfirm();
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            },
+            type
+        });
+    };
+
+    const closeConfirm = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
 
     // Sync state with currentUser when it changes
     useEffect(() => {
@@ -452,9 +483,14 @@ export const WasherSettings: React.FC<WasherSettingsProps> = ({
                         {/* Logout Button */}
                         <button
                             onClick={() => {
-                                if (window.confirm(i18n.t('logout_confirm'))) {
-                                    logout();
-                                }
+                                showConfirm(
+                                    i18n.t('logout'),
+                                    i18n.t('logout_confirm'),
+                                    () => {
+                                        logout();
+                                    },
+                                    'danger'
+                                );
                             }}
                             className="w-full py-4 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
                         >
@@ -541,6 +577,16 @@ export const WasherSettings: React.FC<WasherSettingsProps> = ({
                     </div>
                 )}
             </div>
+
+            {/* Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={confirmModal.isOpen}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                onConfirm={confirmModal.onConfirm}
+                onCancel={closeConfirm}
+                type={confirmModal.type}
+            />
         </div>
     );
 };

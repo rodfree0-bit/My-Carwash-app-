@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Screen, Bonus } from '../types';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface BonusManagementProps {
     bonuses: Bonus[];
@@ -29,6 +30,23 @@ export const BonusManagement: React.FC<BonusManagementProps> = ({
         amount: 0,
         reason: ''
     });
+    const [confirmState, setConfirmState] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        confirmText: 'Confirm',
+        cancelText: 'Cancel',
+        onConfirm: () => { },
+        type: 'primary' as 'danger' | 'primary'
+    });
+
+    const showConfirm = (title: string, message: string, onConfirm: () => void, type: 'danger' | 'primary' = 'primary') => {
+        setConfirmState({ isOpen: true, title, message, confirmText: 'Confirm', cancelText: 'Cancel', onConfirm, type });
+    };
+
+    const closeConfirm = () => {
+        setConfirmState({ ...confirmState, isOpen: false });
+    };
 
     const washers = team.filter(m => m.role === 'washer' && m.status === 'Active');
     const pendingBonuses = bonuses.filter(b => b.status === 'pending');
@@ -68,14 +86,19 @@ export const BonusManagement: React.FC<BonusManagementProps> = ({
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm('Are you sure you want to delete this bonus?')) {
-            try {
-                await deleteBonus(id);
-                showToast('Bonus deleted', 'info');
-            } catch (error) {
-                showToast('Error deleting bonus', 'error');
-            }
-        }
+        showConfirm(
+            'Delete Bonus',
+            'Are you sure you want to delete this bonus?',
+            async () => {
+                try {
+                    await deleteBonus(id);
+                    showToast('Bonus deleted', 'info');
+                } catch (error) {
+                    showToast('Error deleting bonus', 'error');
+                }
+            },
+            'danger'
+        );
     };
 
     const handleWasherChange = (washerId: string) => {
@@ -260,8 +283,19 @@ export const BonusManagement: React.FC<BonusManagementProps> = ({
                 </div>
             )}
 
+            <ConfirmationModal
+                isOpen={confirmState.isOpen}
+                title={confirmState.title}
+                message={confirmState.message}
+                confirmText={confirmState.confirmText}
+                cancelText={confirmState.cancelText}
+                onConfirm={confirmState.onConfirm}
+                onCancel={closeConfirm}
+                type={confirmState.type}
+            />
+
             <Nav active={Screen.ADMIN_PAYROLL} navigate={navigate} />
-        </div>
+        </div >
     );
 };
 
